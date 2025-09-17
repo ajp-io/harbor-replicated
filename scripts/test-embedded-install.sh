@@ -12,27 +12,12 @@ if [[ -z "${LICENSE_ID:-}" ]]; then
     exit 1
 fi
 
-echo "Attempting download from: https://updates.alexparker.info/embedded/harbor-enterprise/unstable/${TEST_VERSION}"
-
-if ! curl -f "https://updates.alexparker.info/embedded/harbor-enterprise/unstable/${TEST_VERSION}" \
+curl -f "https://updates.alexparker.info/embedded/harbor-enterprise/unstable/${TEST_VERSION}" \
   -H "Authorization: ${LICENSE_ID}" \
-  -o harbor-enterprise-unstable.tgz; then
-    echo "❌ Failed to download embedded cluster installation assets"
-    echo "URL: https://updates.alexparker.info/embedded/harbor-enterprise/unstable/${TEST_VERSION}"
-    echo "This might be because the release hasn't been built for embedded cluster yet"
-    exit 1
-fi
-
-echo "Download successful. File size:"
-ls -lh harbor-enterprise-unstable.tgz
+  -o harbor-enterprise-unstable.tgz
 
 echo "Extracting installation assets..."
-if ! tar -xzf harbor-enterprise-unstable.tgz; then
-    echo "❌ Failed to extract installation assets"
-    echo "File might be corrupted or not a valid tar.gz"
-    file harbor-enterprise-unstable.tgz
-    exit 1
-fi
+tar -xzf harbor-enterprise-unstable.tgz
 
 echo "Verifying extracted files..."
 ls -la
