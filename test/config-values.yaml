@@ -1,20 +1,16 @@
 apiVersion: kots.io/v1beta1
 kind: ConfigValues
-metadata:
-  creationTimestamp: null
-  name: harbor
+metadata: {}
 spec:
   values:
     database_type:
       default: embedded
     embedded_postgres_password:
-      default: harbor
-      valuePlaintext: pgpw123
+      value: pgpw123
     external_postgres_database:
       default: registry
     external_postgres_host: {}
-    external_postgres_password:
-      value: wXBCjGeYGx3R21K9brwAdA==
+    external_postgres_password: {}
     external_postgres_port:
       default: "5432"
     external_postgres_sslmode:
@@ -22,5 +18,4 @@ spec:
     external_postgres_username:
       default: postgres
     harbor_admin_password:
-      valuePlaintext: adminpw123
-status: {}
+      value: admin123

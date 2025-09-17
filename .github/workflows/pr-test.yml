@@ -180,44 +180,6 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
-      - name: Report test results
-        if: always()
-        run: |
-          TEST_OUTCOME="${{ steps.test.outcome }}"
-
-          if [[ "$TEST_OUTCOME" == "success" ]]; then
-            echo "✅ Embedded cluster installation test PASSED"
-            echo "The changes in this PR work correctly with embedded cluster deployment."
-          elif [[ "$TEST_OUTCOME" == "failure" ]]; then
-            echo "❌ Embedded cluster installation test FAILED"
-            echo "There may be issues with the changes in this PR. Please review the logs above."
-
-            # Show VM info for debugging
-            if [[ -n "${{ steps.vm.outputs.vm_id }}" ]]; then
-              echo ""
-              echo "🔍 Debug Information:"
-              echo "VM ID: ${{ steps.vm.outputs.vm_id }}"
-              echo "VM has been left running for debugging (1h TTL)"
-              echo "You can SSH to it using: ssh \$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)"
-            fi
-            exit 1
-          elif [[ "$TEST_OUTCOME" == "skipped" || -z "$TEST_OUTCOME" ]]; then
-            echo "❌ Embedded cluster installation test was SKIPPED due to earlier failures"
-            echo "Please check the logs above to see what step failed."
-
-            # Show VM info for debugging if VM was created
-            if [[ -n "${{ steps.vm.outputs.vm_id }}" ]]; then
-              echo ""
-              echo "🔍 Debug Information:"
-              echo "VM ID: ${{ steps.vm.outputs.vm_id }}"
-              echo "VM has been left running for debugging (1h TTL)"
-              echo "You can SSH to it using: ssh \$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)"
-            fi
-            exit 1
-          else
-            echo "❌ Embedded cluster installation test had unexpected outcome: $TEST_OUTCOME"
-            exit 1
-          fi
 
   test-kots:
     needs: create-release
@@ -237,17 +199,17 @@ jobs:
           tar xf replicated.tar.gz
           sudo mv replicated /usr/local/bin/
 
-      - name: Create K3S cluster
+      - name: Create Kind cluster
         id: cluster
         run: |
-          # Create K3S cluster for KOTS testing
+          # Create Kind cluster for KOTS testing
           COMMIT_SHORT=$(git rev-parse --short HEAD)
           CLUSTER_NAME="kots-pr${{ github.event.pull_request.number }}-r${{ github.run_number }}-${COMMIT_SHORT}"
-          echo "Creating K3S cluster for KOTS testing: $CLUSTER_NAME (waiting up to 10 minutes)..."
+          echo "Creating Kind cluster for KOTS testing: $CLUSTER_NAME (waiting up to 10 minutes)..."
 
           CLUSTER_OUTPUT=$(replicated cluster create \
-            --distribution k3s \
-            --version 1.33.4 \
+            --distribution kind \
+            --version 1.34 \
             --instance-type r1.small \
             --name "$CLUSTER_NAME" \
             --wait 10m \
@@ -265,7 +227,7 @@ jobs:
           fi
 
           echo "cluster_id=$CLUSTER_ID" >> $GITHUB_OUTPUT
-          echo "✅ K3S cluster created and ready: $CLUSTER_ID"
+          echo "✅ Kind cluster created and ready: $CLUSTER_ID"
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
@@ -298,34 +260,14 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
-      - name: Cleanup K3S cluster
+      - name: Cleanup Kind cluster
         if: success()
         run: |
           if [[ -n "${{ steps.cluster.outputs.cluster_id }}" ]]; then
-            echo "✅ Test passed! Cleaning up K3S cluster: ${{ steps.cluster.outputs.cluster_id }}"
+            echo "✅ Test passed! Cleaning up Kind cluster: ${{ steps.cluster.outputs.cluster_id }}"
             replicated cluster rm ${{ steps.cluster.outputs.cluster_id }} || true
             echo "Cluster cleanup completed"
           fi
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
-      - name: Report test results
-        if: always()
-        run: |
-          if [[ "${{ job.status }}" == "success" ]]; then
-            echo "✅ KOTS installation test PASSED"
-            echo "The changes in this PR work correctly with KOTS deployment."
-          else
-            echo "❌ KOTS installation test FAILED"
-            echo "There may be issues with the changes in this PR. Please review the logs above."
-
-            # Show cluster info for debugging
-            if [[ -n "${{ steps.cluster.outputs.cluster_id }}" ]]; then
-              echo ""
-              echo "🔍 Debug Information:"
-              echo "Cluster ID: ${{ steps.cluster.outputs.cluster_id }}"
-              echo "Cluster has been left running for debugging (1h TTL)"
-              echo "You can access it using: replicated cluster kubeconfig ${{ steps.cluster.outputs.cluster_id }}"
-            fi
-            exit 1
-          fi

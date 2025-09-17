@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== Harbor KOTS Installation Test ===
+echo "=== Harbor KOTS Installation Test ==="
 echo "Starting at: $(date)"
 
 # Configuration
