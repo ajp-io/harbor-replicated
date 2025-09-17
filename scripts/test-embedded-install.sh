@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== Harbor Embedded Cluster Installation Test ===
+echo "=== Harbor Embedded Cluster Installation Test ==="
 echo "Starting at: $(date)"
 
 echo "Downloading Embedded Cluster installation assets for version: ${TEST_VERSION}"
