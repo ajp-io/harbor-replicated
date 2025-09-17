@@ -1,0 +1,5 @@
+**/.DS_Store
+.helmignore
+
+# Helm package artifacts
+manifests/*.tgz
