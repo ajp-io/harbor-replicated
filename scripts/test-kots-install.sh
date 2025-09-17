@@ -114,5 +114,5 @@ kubectl get deployment,statefulset,service -n ${NAMESPACE} | grep harbor
 
 echo "Cluster verification complete!"
 
-echo "=== Harbor KOTS Installation Test PASSED ===
+echo "=== Harbor KOTS Installation Test PASSED ==="
 echo "Completed at: $(date)"
