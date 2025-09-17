@@ -1,0 +1,42 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: harbor
+spec:
+  # chart identifies a matching chart from a .tgz
+  chart:
+    name: harbor
+    chartVersion: 1.17.2
+  helmUpgradeFlags:
+    - --wait
+    - --timeout
+    - 5m
+  values:
+    imagePullSecrets:
+      - name: '{{repl ImagePullSecretName }}'
+    harborAdminPassword: repl{{ ConfigOption "harbor_admin_password" }}
+  optionalValues:
+    # External PostgreSQL mode
+    - when: 'repl{{ ConfigOptionEquals "database_type" "external" }}'
+      values:
+        database:
+          type: external
+          external:
+            host: repl{{ ConfigOption "external_postgres_host" }}
+            port: repl{{ ConfigOption "external_postgres_port" }}
+            username: repl{{ ConfigOption "external_postgres_username" }}
+            password: repl{{ ConfigOption "external_postgres_password" }}
+            coreDatabase: repl{{ ConfigOption "external_postgres_database" }}
+            sslmode: repl{{ ConfigOption "external_postgres_sslmode" }}
+
+    # Embedded PostgreSQL mode
+    - when: 'repl{{ ConfigOptionEquals "database_type" "embedded" }}'
+      values:
+        database:
+          type: internal
+          internal:
+            password: repl{{ ConfigOption "embedded_postgres_password" }}
+  builder:
+    global:
+      replicated:
+        dockerconfigjson: placeholder # don't fail air gap builds

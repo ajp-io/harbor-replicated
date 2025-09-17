@@ -1,0 +1,12 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: backup
+spec:
+  # Back up the resources in the kotsadm namespace  
+  includedNamespaces:
+  - kotsadm
+  orLabelSelectors:
+  - matchExpressions:
+    # Exclude Replicated resources from the backup
+    - { key: kots.io/kotsadm, operator: NotIn, values: ["true"] }

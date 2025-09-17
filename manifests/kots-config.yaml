@@ -1,0 +1,95 @@
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: harbor-config
+spec:
+  groups:
+  - name: harbor_settings
+    title: Harbor Settings
+    description: Core settings for Harbor Registry
+    items:
+    - name: harbor_admin_password
+      title: Harbor Admin Password
+      type: password
+      required: true
+      help_text: Initial password for the Harbor admin user
+
+  - name: database_settings
+    title: Database Settings
+    items:
+    - name: database_type
+      title: Database Type
+      type: select_one
+      items:
+      - name: embedded
+        title: Embedded PostgreSQL
+        description: Use the built-in PostgreSQL database (recommended for most deployments)
+      - name: external
+        title: External PostgreSQL
+        description: Use an existing PostgreSQL database server
+      default: embedded
+      required: true
+
+    - name: embedded_postgres_password
+      title: Embedded PostgreSQL Password
+      type: password
+      required: true
+      help_text: Password for the embedded PostgreSQL database superuser
+      when: 'repl{{ ConfigOptionEquals "database_type" "embedded" }}'
+
+    - name: external_postgres_host
+      title: External PostgreSQL Host
+      type: text
+      required: true
+      help_text: Hostname of your PostgreSQL server (e.g., "postgres.example.com")
+      when: 'repl{{ ConfigOptionEquals "database_type" "external" }}'
+
+    - name: external_postgres_port
+      title: External PostgreSQL Port
+      type: text
+      default: "5432"
+      help_text: Port number for PostgreSQL
+      when: 'repl{{ ConfigOptionEquals "database_type" "external" }}'
+
+    - name: external_postgres_database
+      title: External PostgreSQL Database Name
+      type: text
+      default: registry
+      required: true
+      help_text: The name of the database to use for Harbor
+      when: 'repl{{ ConfigOptionEquals "database_type" "external" }}'
+
+    - name: external_postgres_username
+      title: External PostgreSQL Username
+      type: text
+      default: postgres
+      required: true
+      help_text: Username to connect to the external PostgreSQL database
+      when: 'repl{{ ConfigOptionEquals "database_type" "external" }}'
+
+    - name: external_postgres_password
+      title: External PostgreSQL Password
+      type: password
+      required: true
+      help_text: Password to connect to the external PostgreSQL database
+      when: 'repl{{ ConfigOptionEquals "database_type" "external" }}'
+
+    - name: external_postgres_sslmode
+      title: External PostgreSQL SSL Mode
+      type: select_one
+      items:
+      - name: disable
+        title: Disable SSL
+        description: No SSL/TLS encryption (suitable for private networks)
+      - name: require
+        title: Require SSL
+        description: SSL required but no certificate verification
+      - name: verify-ca
+        title: Verify CA
+        description: SSL with CA certificate verification
+      - name: verify-full
+        title: Verify Full
+        description: SSL with full certificate and hostname verification
+      default: require
+      help_text: SSL/TLS connection mode for PostgreSQL
+      when: 'repl{{ ConfigOptionEquals "database_type" "external" }}'

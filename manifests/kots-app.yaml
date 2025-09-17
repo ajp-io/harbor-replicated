@@ -1,0 +1,35 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: harbor
+spec:
+  title: Harbor
+  statusInformers:
+    # Core Harbor components (always deployed)
+    - deployment/harbor-core
+    - service/harbor-core
+    - deployment/harbor-portal
+    - service/harbor-portal
+    - deployment/harbor-jobservice
+    - service/harbor-jobservice
+    - deployment/harbor-registry
+    - service/harbor-registry
+
+    # Database components (only when database_type = embedded)
+    - '{{repl if (ConfigOptionEquals "database_type" "embedded") }}statefulset/harbor-database{{repl end}}'
+    - '{{repl if (ConfigOptionEquals "database_type" "embedded") }}service/harbor-database{{repl end}}'
+
+    # Redis components (always deployed since we only support embedded Redis for now)
+    - statefulset/harbor-redis
+    - service/harbor-redis
+
+    # Trivy scanner (enabled by default, but could be disabled later)
+    - statefulset/harbor-trivy
+    - service/harbor-trivy
+
+  ports:
+    - serviceName: "harbor"
+      servicePort: 80
+      localPort: 30002
+      applicationUrl: "http://harbor"
+  icon: https://raw.githubusercontent.com/goharbor/website/main/static/img/logos/harbor-icon-color.png

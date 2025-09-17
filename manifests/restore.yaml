@@ -1,0 +1,9 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: restore
+spec:
+  # the name of the Backup resource that you created
+  backupName: backup
+  includedNamespaces:
+  - '*'
