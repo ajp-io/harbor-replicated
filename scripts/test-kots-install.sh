@@ -112,6 +112,28 @@ echo "All resources verified and ready!"
 echo "Checking final deployment status..."
 kubectl get deployment,statefulset,service -n ${NAMESPACE} | grep harbor
 
+echo "Testing Harbor UI accessibility through KOTS admin console..."
+# Start admin console in background
+kubectl kots admin-console --namespace ${NAMESPACE} &
+KOTS_PID=$!
+
+# Wait for port forward to establish
+echo "Waiting for admin console port forward to establish..."
+sleep 15
+
+# Test UI accessibility
+echo "Testing Harbor UI at localhost:30002..."
+if curl -f -s http://localhost:30002 > /dev/null 2>&1; then
+    echo "✅ Harbor UI is accessible through KOTS admin console"
+else
+    echo "❌ Harbor UI not accessible through KOTS admin console"
+fi
+
+# Cleanup admin console
+echo "Cleaning up admin console port forward..."
+kill $KOTS_PID || true
+sleep 2
+
 echo "Cluster verification complete!"
 
 echo "=== Harbor KOTS Installation Test PASSED ==="
