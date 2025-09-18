@@ -15,6 +15,10 @@ spec:
     imagePullSecrets:
       - name: '{{repl ImagePullSecretName }}'
     harborAdminPassword: repl{{ ConfigOption "harbor_admin_password" }}
+    expose:
+      type: clusterIP
+      tls:
+        enabled: false
   optionalValues:
     # External PostgreSQL mode
     - when: 'repl{{ ConfigOptionEquals "database_type" "external" }}'
