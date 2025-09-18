@@ -28,9 +28,9 @@ spec:
     - service/harbor-trivy
 
   ports:
-    - serviceName: "harbor-core"
+    - serviceName: "harbor"
       servicePort: 80
       localPort: 30002
-      applicationUrl: "http://harbor-core"
+      applicationUrl: "http://harbor"
   icon: https://raw.githubusercontent.com/goharbor/website/main/static/img/logos/harbor-icon-color.png
   # Trigger CI workflow rerun
