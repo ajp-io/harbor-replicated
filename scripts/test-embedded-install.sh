@@ -41,10 +41,7 @@ echo "Checking cluster status..."
 $KUBECTL get nodes
 
 echo "Checking all resources..."
-echo "About to run harbor grep command..."
-$KUBECTL get deployment,statefulset,service -n kotsadm
-echo "Now filtering for harbor..."
-$KUBECTL get deployment,statefulset,service -n kotsadm | grep harbor || echo "Grep failed with exit code $?"
+$KUBECTL get deployment,statefulset,service -n kotsadm | grep harbor
 
 # Wait for StatefulSets first (dependencies)
 echo "Waiting for PostgreSQL StatefulSet to have ready replicas..."
@@ -94,5 +91,5 @@ $KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-trivy -n kotsadm --ti
 echo "All resources verified and ready!"
 echo "Cluster verification complete!"
 
-echo "=== Harbor Embedded Cluster Installation Test PASSED ===
+echo "=== Harbor Embedded Cluster Installation Test PASSED ==="
 echo "Completed at: $(date)"
