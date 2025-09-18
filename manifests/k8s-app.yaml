@@ -7,4 +7,4 @@ spec:
     links:
       - description: Open App
         # needs to match applicationUrl in kots-app.yaml
-        url: "http://harbor"
+        url: "http://harbor-core"

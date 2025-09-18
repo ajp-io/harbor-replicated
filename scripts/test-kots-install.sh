@@ -127,6 +127,8 @@ if curl -f -s http://localhost:30002 > /dev/null 2>&1; then
     echo "✅ Harbor UI is accessible through KOTS admin console"
 else
     echo "❌ Harbor UI not accessible through KOTS admin console"
+    kill $KOTS_PID || true
+    exit 1
 fi
 
 # Cleanup admin console
