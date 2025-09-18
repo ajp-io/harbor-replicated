@@ -30,6 +30,6 @@ spec:
   ports:
     - serviceName: "harbor"
       servicePort: 8080
-      localPort: 30002
+      localPort: 30001
       applicationUrl: "http://harbor"
   icon: https://raw.githubusercontent.com/goharbor/website/main/static/img/logos/harbor-icon-color.png

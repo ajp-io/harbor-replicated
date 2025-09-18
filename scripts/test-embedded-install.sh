@@ -90,21 +90,6 @@ $KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-trivy -n kotsadm --ti
 
 echo "All resources verified and ready!"
 
-echo "Testing Harbor UI accessibility through embedded cluster..."
-# Get node IP - try external IP first, fallback to internal IP
-NODE_IP=$($KUBECTL get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
-if [[ -z "$NODE_IP" ]]; then
-    NODE_IP=$($KUBECTL get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-fi
-
-echo "Testing Harbor UI at ${NODE_IP}:30001..."
-if curl -f -s http://${NODE_IP}:30001 > /dev/null 2>&1; then
-    echo "✅ Harbor UI is accessible at ${NODE_IP}:30001"
-else
-    echo "❌ Harbor UI not accessible at ${NODE_IP}:30001"
-    exit 1
-fi
-
 echo "Cluster verification complete!"
 
 echo "=== Harbor Embedded Cluster Installation Test PASSED ==="

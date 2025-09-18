@@ -112,14 +112,6 @@ echo "All resources verified and ready!"
 echo "Checking final deployment status..."
 kubectl get deployment,statefulset,service -n ${NAMESPACE} | grep harbor
 
-echo "Debugging services before KOTS admin console test..."
-echo "All services in namespace:"
-kubectl get services -n ${NAMESPACE}
-echo "Harbor service details:"
-kubectl describe service/harbor -n ${NAMESPACE} || echo "harbor service not found"
-echo "Harbor-core service details:"
-kubectl describe service/harbor-core -n ${NAMESPACE} || echo "harbor-core service not found"
-
 echo "Testing Harbor UI accessibility through KOTS admin console..."
 # Start admin console in background
 kubectl kots admin-console --namespace ${NAMESPACE} &
@@ -130,8 +122,8 @@ echo "Waiting for admin console port forward to establish..."
 sleep 15
 
 # Test UI accessibility
-echo "Testing Harbor UI at localhost:30002..."
-if curl -f -s http://localhost:30002 > /dev/null 2>&1; then
+echo "Testing Harbor UI at localhost:30001..."
+if curl -f -s http://localhost:30001 > /dev/null 2>&1; then
     echo "✅ Harbor UI is accessible through KOTS admin console"
 else
     echo "❌ Harbor UI not accessible through KOTS admin console"
