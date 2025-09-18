@@ -41,7 +41,7 @@ echo "Checking cluster status..."
 $KUBECTL get nodes
 
 echo "Checking all resources..."
-$KUBECTL get deployment,statefulset,service -n kotsadm | grep harbor
+$KUBECTL get deployment,statefulset,service -n kotsadm | grep harbor || true
 
 # Wait for StatefulSets first (dependencies)
 echo "Waiting for PostgreSQL StatefulSet to have ready replicas..."
