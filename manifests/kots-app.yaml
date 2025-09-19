@@ -4,6 +4,9 @@ metadata:
   name: harbor-enterprise
 spec:
   title: Harbor Enterprise
+  additionalNamespaces:
+    - ingress-nginx
+    - cert-manager
   statusInformers:
     # Core Harbor components
     - deployment/harbor-core
@@ -32,11 +35,11 @@ spec:
     - service/replicated
 
     # Embedded Cluster extensions
-    - '{{repl if (eq Distribution "embedded-cluster") }}deployment/ingress-nginx-controller{{repl end}}'
-    - '{{repl if (eq Distribution "embedded-cluster") }}service/ingress-nginx-controller{{repl end}}'
-    - '{{repl if (eq Distribution "embedded-cluster") }}deployment/cert-manager{{repl end}}'
-    - '{{repl if (eq Distribution "embedded-cluster") }}deployment/cert-manager-cainjector{{repl end}}'
-    - '{{repl if (eq Distribution "embedded-cluster") }}deployment/cert-manager-webhook{{repl end}}'
+    - '{{repl if (eq Distribution "embedded-cluster") }}ingress-nginx/deployment/ingress-nginx-controller{{repl end}}'
+    - '{{repl if (eq Distribution "embedded-cluster") }}ingress-nginx/service/ingress-nginx-controller{{repl end}}'
+    - '{{repl if (eq Distribution "embedded-cluster") }}cert-manager/deployment/cert-manager{{repl end}}'
+    - '{{repl if (eq Distribution "embedded-cluster") }}cert-manager/deployment/cert-manager-cainjector{{repl end}}'
+    - '{{repl if (eq Distribution "embedded-cluster") }}cert-manager/deployment/cert-manager-webhook{{repl end}}'
 
   ports:
     - serviceName: "harbor"
