@@ -113,7 +113,7 @@ jobs:
             --wait 10m \
             --output json)
 
-          echo "VM creation output:"
+          echo "VM creation output: "
           echo "$VM_OUTPUT"
 
           # Try to extract VM ID - handle both object and array responses
