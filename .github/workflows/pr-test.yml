@@ -51,10 +51,16 @@ jobs:
           # Clean any existing packages
           rm -f manifests/*.tgz
 
+          # Update dependencies to fetch the Replicated SDK
+          helm dependency update harbor
+
           # Package the chart
           helm package harbor -d manifests -u
           echo "Packaged chart:"
           ls -la manifests/*.tgz
+
+          # Clean up downloaded dependencies
+          rm -rf harbor/charts/
 
       - name: Create test release
         run: |

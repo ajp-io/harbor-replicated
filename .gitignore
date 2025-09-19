@@ -3,3 +3,6 @@
 
 # Helm package artifacts
 manifests/*.tgz
+
+# Helm dependency charts
+harbor/charts/

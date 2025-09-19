@@ -106,6 +106,12 @@ kubectl wait --for=jsonpath='{.subsets}' endpoints/harbor-jobservice -n ${NAMESP
 echo "Waiting for Trivy service to have endpoints..."
 kubectl wait --for=jsonpath='{.subsets}' endpoints/harbor-trivy -n ${NAMESPACE} --timeout=300s
 
+echo "Waiting for Replicated SDK deployment to be available..."
+kubectl wait deployment/replicated --for=condition=available -n ${NAMESPACE} --timeout=300s
+
+echo "Waiting for Replicated SDK service to have endpoints..."
+kubectl wait --for=jsonpath='{.subsets}' endpoints/replicated -n ${NAMESPACE} --timeout=300s
+
 echo "All resources verified and ready!"
 
 # Show final status
