@@ -1,0 +1,23 @@
+# Only deploy this resource in embedded cluster mode
+# This ensures cert-manager CRDs are available before creating ClusterIssuer
+apiVersion: kots.io/v1beta1
+kind: OptionalResource
+metadata:
+  name: cert-manager-issuers
+spec:
+  when: 'repl{{ eq Distribution "embedded-cluster" }}'
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: test@example.com  # TODO: Use customer email from license
+    privateKeySecretRef:
+      name: letsencrypt-staging
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
