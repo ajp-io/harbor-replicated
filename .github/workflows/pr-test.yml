@@ -120,20 +120,26 @@ jobs:
 
           echo "✅ VM created and ready: $VM_ID"
 
-          # Expose port 80 for NGINX ingress
-          echo "Exposing port 80 for ingress on VM: $VM_ID"
-          EXPOSE_OUTPUT=$(replicated vm port expose $VM_ID --port 80 --protocol http --output json)
-          echo "Port expose output:"
-          echo "$EXPOSE_OUTPUT"
+          # Expose port 80 for HTTP (redirects to HTTPS)
+          echo "Exposing port 80 for HTTP redirects on VM: $VM_ID"
+          EXPOSE_HTTP_OUTPUT=$(replicated vm port expose $VM_ID --port 80 --protocol http --output json)
+          echo "HTTP port expose output:"
+          echo "$EXPOSE_HTTP_OUTPUT"
 
-          HOSTNAME=$(echo "$EXPOSE_OUTPUT" | jq -r '.hostname')
+          # Expose port 443 for HTTPS
+          echo "Exposing port 443 for HTTPS on VM: $VM_ID"
+          EXPOSE_HTTPS_OUTPUT=$(replicated vm port expose $VM_ID --port 443 --protocol https --output json)
+          echo "HTTPS port expose output:"
+          echo "$EXPOSE_HTTPS_OUTPUT"
+
+          HOSTNAME=$(echo "$EXPOSE_HTTPS_OUTPUT" | jq -r '.hostname')
 
           if [[ -z "$HOSTNAME" || "$HOSTNAME" == "null" ]]; then
-            echo "❌ Failed to get hostname from port expose output"
+            echo "❌ Failed to get hostname from HTTPS port expose output"
             exit 1
           fi
 
-          echo "✅ Port 80 exposed. Harbor will be accessible at: http://$HOSTNAME"
+          echo "✅ Ports 80 (HTTP) and 443 (HTTPS) exposed. Harbor will be accessible at: https://$HOSTNAME"
 
           echo "vm_id=$VM_ID" >> $GITHUB_OUTPUT
           echo "hostname=$HOSTNAME" >> $GITHUB_OUTPUT
@@ -180,7 +186,7 @@ jobs:
 
           # Run the test script on the VM with the test version and hostname
           echo "Running embedded cluster installation test for version: ${{ needs.create-release.outputs.test_version }}"
-          echo "Harbor will be accessible at: http://${{ steps.vm.outputs.hostname }}"
+          echo "Harbor will be accessible at: https://${{ steps.vm.outputs.hostname }}"
           ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'chmod +x /tmp/test.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" /tmp/test.sh'
 
           echo "Test completed successfully!"

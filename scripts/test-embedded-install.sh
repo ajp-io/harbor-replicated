@@ -15,7 +15,7 @@ if [[ -z "${HOSTNAME:-}" ]]; then
     exit 1
 fi
 
-echo "✅ Harbor will be accessible at: http://${HOSTNAME}"
+echo "✅ Harbor will be accessible at: https://${HOSTNAME}"
 
 echo "Updating config values with ingress hostname..."
 # Replace harbor.local with actual hostname using a more reliable approach
@@ -119,15 +119,15 @@ $KUBECTL get ingress -n kotsadm | grep harbor || {
     exit 1
 }
 
-# Test Harbor UI accessibility via ingress
-echo "Testing Harbor UI accessibility via ingress at: http://${HOSTNAME}"
+# Test Harbor UI accessibility via HTTPS ingress
+echo "Testing Harbor UI accessibility via HTTPS ingress at: https://${HOSTNAME}"
 for i in {1..10}; do
-    echo "Attempt $i/10: Testing Harbor UI..."
-    if curl -f -s -I "http://${HOSTNAME}" | grep -q "HTTP/[0-9.]\+ 200"; then
-        echo "✅ Harbor UI is accessible via ingress!"
+    echo "Attempt $i/10: Testing Harbor UI via HTTPS..."
+    if curl -f -s -I -k "https://${HOSTNAME}" | grep -q "HTTP/[0-9.]\+ 200"; then
+        echo "✅ Harbor UI is accessible via HTTPS ingress!"
         break
     elif [[ $i -eq 10 ]]; then
-        echo "❌ Harbor UI not accessible after 10 attempts"
+        echo "❌ Harbor UI not accessible via HTTPS after 10 attempts"
         echo "Debugging ingress configuration..."
         $KUBECTL get ingress -n kotsadm -o yaml
         $KUBECTL get service -n ingress-nginx
@@ -138,8 +138,16 @@ for i in {1..10}; do
     fi
 done
 
+# Test HTTP to HTTPS redirect
+echo "Testing HTTP to HTTPS redirect..."
+if curl -s -I "http://${HOSTNAME}" | grep -q "Location: https://"; then
+    echo "✅ HTTP to HTTPS redirect is working!"
+else
+    echo "⚠️  HTTP to HTTPS redirect may not be configured properly"
+fi
+
 echo "Cluster verification complete!"
 
 echo "=== Harbor Embedded Cluster Installation Test PASSED ==="
-echo "✅ Harbor is accessible at: http://${HOSTNAME}"
+echo "✅ Harbor is accessible at: https://${HOSTNAME}"
 echo "Completed at: $(date)"
