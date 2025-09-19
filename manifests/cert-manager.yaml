@@ -14,6 +14,19 @@ spec:
     - --wait
     - --timeout
     - 5m
-    - --create-namespace
   values:
     installCRDs: true
+    global:
+      imagePullSecrets:
+        - name: '{{repl ImagePullSecretName }}'
+    image:
+      repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-controller
+    webhook:
+      image:
+        repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-webhook
+    cainjector:
+      image:
+        repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-cainjector
+    startupapicheck:
+      image:
+        repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-ctl

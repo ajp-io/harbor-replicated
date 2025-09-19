@@ -8,22 +8,28 @@ spec:
     chartVersion: "4.13.2"
   releaseName: ingress-nginx
   weight: -20
+  namespace: ingress-nginx
   exclude: 'repl{{ ne Distribution "embedded-cluster" }}'
   helmUpgradeFlags:
     - --wait
     - --timeout
     - 5m
   values:
+    imagePullSecrets:
+      - name: '{{repl ImagePullSecretName }}'
+    global:
+      image:
+        registry: images.alexparker.info/proxy/harbor-enterprise/k8s
     controller:
       service:
         type: NodePort
         nodePorts:
           http: "80"
           https: "443"
-      image:
-        digest: ""
-        digestChroot: ""
       admissionWebhooks:
         patch:
           image:
-            digest: ""
+            image: ingress-nginx/kube-webhook-certgen
+    defaultBackend:
+      image:
+        image: defaultbackend-amd64
