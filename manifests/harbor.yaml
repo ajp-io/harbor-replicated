@@ -1,7 +1,7 @@
 apiVersion: kots.io/v1beta2
 kind: HelmChart
 metadata:
-  name: harbor
+  name: harbor-enterprise
 spec:
   # chart identifies a matching chart from a .tgz
   chart:
@@ -17,7 +17,7 @@ spec:
     harborAdminPassword: repl{{ ConfigOption "harbor_admin_password" }}
   optionalValues:
     # Embedded Cluster - Use Ingress
-    - when: repl{{ eq Distribution "embedded-cluster" }}
+    - when: 'repl{{ eq Distribution "embedded-cluster" }}'
       values:
         expose:
           type: ingress
@@ -30,7 +30,7 @@ spec:
         externalURL: http://repl{{ ConfigOption "harbor_hostname" }}
 
     # KOTS - Use ClusterIP
-    - when: repl{{ ne Distribution "embedded-cluster" }}
+    - when: 'repl{{ ne Distribution "embedded-cluster" }}'
       values:
         expose:
           type: clusterIP
