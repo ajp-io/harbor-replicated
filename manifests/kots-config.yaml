@@ -20,6 +20,12 @@ spec:
       help_text: "The domain name that will be used to access your Harbor registry"
       when: repl{{ eq Distribution "embedded-cluster" }}
 
+    - name: trivy_enabled
+      title: Enable Trivy Scanner
+      type: bool
+      default: "1"
+      help_text: Enable Trivy vulnerability scanner for image scanning
+
   - name: database_settings
     title: Database Settings
     items:

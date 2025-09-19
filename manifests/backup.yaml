@@ -1,7 +1,7 @@
 apiVersion: velero.io/v1
 kind: Backup
 metadata:
-  name: backup
+  name: harbor-enterprise-backup
 spec:
   # Back up the resources in the kotsadm namespace  
   includedNamespaces:
