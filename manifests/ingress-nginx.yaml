@@ -8,7 +8,6 @@ spec:
     chartVersion: "4.13.2"
   releaseName: ingress-nginx
   weight: -20
-  namespace: ingress-nginx
   exclude: 'repl{{ ne Distribution "embedded-cluster" }}'
   helmUpgradeFlags:
     - --wait

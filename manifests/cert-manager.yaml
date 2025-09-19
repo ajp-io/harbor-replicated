@@ -8,7 +8,6 @@ spec:
     chartVersion: "v1.13.3"
   releaseName: cert-manager
   weight: -10
-  namespace: cert-manager
   exclude: 'repl{{ ne Distribution "embedded-cluster" }}'
   helmUpgradeFlags:
     - --wait
