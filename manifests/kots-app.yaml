@@ -27,6 +27,10 @@ spec:
     - statefulset/harbor-trivy
     - service/harbor-trivy
 
+    # Replicated SDK components
+    - deployment/replicated
+    - service/replicated
+
   ports:
     - serviceName: "harbor"
       servicePort: 8080

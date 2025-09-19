@@ -22,3 +22,7 @@ sources:
 - https://github.com/goharbor/harbor
 - https://github.com/goharbor/harbor-helm
 version: 1.17.2
+dependencies:
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.8.0

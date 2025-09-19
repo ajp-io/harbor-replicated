@@ -100,6 +100,12 @@ $KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-jobservice -n kotsadm
 echo "Waiting for Trivy service to have endpoints..."
 $KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-trivy -n kotsadm --timeout=300s
 
+echo "Waiting for Replicated SDK deployment to be available..."
+$KUBECTL wait deployment/replicated --for=condition=available -n kotsadm --timeout=300s
+
+echo "Waiting for Replicated SDK service to have endpoints..."
+$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/replicated -n kotsadm --timeout=300s
+
 echo "All resources verified and ready!"
 
 # Verify NGINX Ingress Controller
