@@ -146,14 +146,28 @@ jobs:
           echo "HTTPS port expose output:"
           echo "$EXPOSE_HTTPS_OUTPUT"
 
+          # Expose port 30000 for KOTS Admin Console
+          echo "Exposing port 30000 for KOTS Admin Console on VM: $VM_ID"
+          EXPOSE_ADMIN_OUTPUT=$(replicated vm port expose $VM_ID --port 30000 --protocol http --output json)
+          echo "Admin Console port expose output:"
+          echo "$EXPOSE_ADMIN_OUTPUT"
+
           HOSTNAME=$(echo "$EXPOSE_HTTPS_OUTPUT" | jq -r '.hostname')
+          ADMIN_HOSTNAME=$(echo "$EXPOSE_ADMIN_OUTPUT" | jq -r '.hostname')
 
           if [[ -z "$HOSTNAME" || "$HOSTNAME" == "null" ]]; then
             echo "❌ Failed to get hostname from HTTPS port expose output"
             exit 1
           fi
 
-          echo "✅ Ports 80 (HTTP) and 443 (HTTPS) exposed. Harbor will be accessible at: https://$HOSTNAME"
+          if [[ -z "$ADMIN_HOSTNAME" || "$ADMIN_HOSTNAME" == "null" ]]; then
+            echo "❌ Failed to get admin hostname from port 30000 expose output"
+            exit 1
+          fi
+
+          echo "✅ Ports 80 (HTTP), 443 (HTTPS), and 30000 (Admin Console) exposed"
+          echo "✅ Harbor will be accessible at: https://$HOSTNAME"
+          echo "✅ KOTS Admin Console will be accessible at: http://$ADMIN_HOSTNAME:30000"
 
           echo "vm_id=$VM_ID" >> $GITHUB_OUTPUT
           echo "hostname=$HOSTNAME" >> $GITHUB_OUTPUT
