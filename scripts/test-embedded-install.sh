@@ -4,13 +4,24 @@ set -euo pipefail
 echo "=== Harbor Embedded Cluster Installation Test ==="
 echo "Starting at: $(date)"
 
-echo "Downloading Embedded Cluster installation assets for version: ${TEST_VERSION}"
-
 # Validate required environment variables
 if [[ -z "${LICENSE_ID:-}" ]]; then
     echo "❌ LICENSE_ID environment variable is required"
     exit 1
 fi
+
+if [[ -z "${HOSTNAME:-}" ]]; then
+    echo "❌ HOSTNAME environment variable is required"
+    exit 1
+fi
+
+echo "✅ Harbor will be accessible at: http://${HOSTNAME}"
+
+echo "Updating config values with ingress hostname..."
+cp test/config-values.yaml /tmp/config-values.yaml
+sed -i "s/value: \"harbor.local\"/value: \"$HOSTNAME\"/" /tmp/config-values.yaml
+
+echo "Downloading Embedded Cluster installation assets for version: ${TEST_VERSION}"
 
 curl -f "https://updates.alexparker.info/embedded/harbor-enterprise/unstable/${TEST_VERSION}" \
   -H "Authorization: ${LICENSE_ID}" \
@@ -90,7 +101,44 @@ $KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-trivy -n kotsadm --ti
 
 echo "All resources verified and ready!"
 
+# Verify NGINX Ingress Controller
+echo "Checking NGINX Ingress Controller..."
+$KUBECTL get deployment/ingress-nginx-controller -n ingress-nginx || {
+    echo "❌ NGINX Ingress Controller not found"
+    exit 1
+}
+
+echo "Waiting for NGINX Ingress Controller to be available..."
+$KUBECTL wait deployment/ingress-nginx-controller --for=condition=available -n ingress-nginx --timeout=300s
+
+# Check ingress resources
+echo "Checking Harbor Ingress resources..."
+$KUBECTL get ingress -n kotsadm | grep harbor || {
+    echo "❌ Harbor Ingress resource not found"
+    exit 1
+}
+
+# Test Harbor UI accessibility via ingress
+echo "Testing Harbor UI accessibility via ingress at: http://${HOSTNAME}"
+for i in {1..10}; do
+    echo "Attempt $i/10: Testing Harbor UI..."
+    if curl -f -s -I "http://${HOSTNAME}" | grep -q "HTTP/[0-9.]\+ 200"; then
+        echo "✅ Harbor UI is accessible via ingress!"
+        break
+    elif [[ $i -eq 10 ]]; then
+        echo "❌ Harbor UI not accessible after 10 attempts"
+        echo "Debugging ingress configuration..."
+        $KUBECTL get ingress -n kotsadm -o yaml
+        $KUBECTL get service -n ingress-nginx
+        exit 1
+    else
+        echo "Harbor UI not ready yet, waiting 30 seconds..."
+        sleep 30
+    fi
+done
+
 echo "Cluster verification complete!"
 
 echo "=== Harbor Embedded Cluster Installation Test PASSED ==="
+echo "✅ Harbor is accessible at: http://${HOSTNAME}"
 echo "Completed at: $(date)"

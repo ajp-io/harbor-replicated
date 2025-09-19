@@ -19,3 +19,5 @@ spec:
       default: postgres
     harbor_admin_password:
       value: admin123
+    harbor_hostname:
+      value: "harbor.local"

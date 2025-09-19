@@ -1,7 +1,7 @@
 apiVersion: kots.io/v1beta2
 kind: HelmChart
 metadata:
-  name: harbor
+  name: harbor-enterprise
 spec:
   # chart identifies a matching chart from a .tgz
   chart:
@@ -15,11 +15,28 @@ spec:
     imagePullSecrets:
       - name: '{{repl ImagePullSecretName }}'
     harborAdminPassword: repl{{ ConfigOption "harbor_admin_password" }}
-    expose:
-      type: clusterIP
-      tls:
-        enabled: false
   optionalValues:
+    # Embedded Cluster - Use Ingress
+    - when: repl{{ eq Distribution "embedded-cluster" }}
+      values:
+        expose:
+          type: ingress
+          tls:
+            enabled: false
+          ingress:
+            hosts:
+              core: repl{{ ConfigOption "harbor_hostname" }}
+            className: nginx
+        externalURL: http://repl{{ ConfigOption "harbor_hostname" }}
+
+    # KOTS - Use ClusterIP
+    - when: repl{{ ne Distribution "embedded-cluster" }}
+      values:
+        expose:
+          type: clusterIP
+          tls:
+            enabled: false
+
     # External PostgreSQL mode
     - when: 'repl{{ ConfigOptionEquals "database_type" "external" }}'
       values:

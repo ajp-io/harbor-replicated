@@ -14,30 +14,30 @@ spec:
   #   - name: database
   #     labels:
   #      database: "true"
-  # extensions:
-  #   helm:
-  #     repositories:
-  #       - name: ingress-nginx
-  #         url: https://kubernetes.github.io/ingress-nginx
-  #     charts:
-  #       - name: ingress-nginx
-  #         chartname: ingress-nginx/ingress-nginx
-  #         namespace: ingress-nginx
-  #         version: "4.12.0"
-  #         values: |
-  #           controller:
-  #             service:
-  #               type: NodePort
-  #               nodePorts:
-  #                 http: "80"
-  #                 https: "443"
-  #             image:
-  #               digest: ""
-  #               digestChroot: ""
-  #             admissionWebhooks:
-  #               patch:
-  #                 image:
-  #                   digest: ""
+  extensions:
+    helm:
+      repositories:
+        - name: ingress-nginx
+          url: https://kubernetes.github.io/ingress-nginx
+      charts:
+        - name: ingress-nginx
+          chartname: ingress-nginx/ingress-nginx
+          namespace: ingress-nginx
+          version: "4.13.2"
+          values: |
+            controller:
+              service:
+                type: NodePort
+                nodePorts:
+                  http: "80"
+                  https: "443"
+              image:
+                digest: ""
+                digestChroot: ""
+              admissionWebhooks:
+                patch:
+                  image:
+                    digest: ""
   # unsupportedOverrides:
   #   k0s: |
   #     config:
