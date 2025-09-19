@@ -1,0 +1,39 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: cert-manager
+spec:
+  chart:
+    name: cert-manager
+    chartVersion: "v1.13.3"
+  releaseName: cert-manager
+  weight: -10
+  namespace: cert-manager
+  helmUpgradeFlags:
+    - --wait
+    - --timeout
+    - 5m
+    - --create-namespace
+  optionalValues:
+    # Only deploy cert-manager in embedded cluster
+    - when: 'repl{{ ne Distribution "embedded-cluster" }}'
+      recursiveMerge: false
+      values: {}
+  values:
+    installCRDs: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cert-manager-registry
+  namespace: default
+stringData:
+  .dockerconfigjson: repl{{ ImagePullSecretValue }}
+type: kubernetes.io/dockerconfigjson
+---
+apiVersion: kots.io/v1beta1
+kind: OptionalResource
+metadata:
+  name: cert-manager-chart
+spec:
+  when: 'repl{{ eq Distribution "embedded-cluster" }}'
