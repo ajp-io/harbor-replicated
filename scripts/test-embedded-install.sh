@@ -18,7 +18,6 @@ fi
 echo "✅ Harbor will be accessible at: http://${HOSTNAME}"
 
 echo "Updating config values with ingress hostname..."
-cp test/config-values.yaml /tmp/config-values.yaml
 # Replace harbor.local with actual hostname using a more reliable approach
 ESCAPED_HOSTNAME=$(printf '%s\n' "$HOSTNAME" | sed 's/[[\.*^$()+?{|]/\\&/g')
 sed -i "s/harbor\\.local/$ESCAPED_HOSTNAME/g" /tmp/config-values.yaml
