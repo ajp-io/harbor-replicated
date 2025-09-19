@@ -18,18 +18,19 @@ spec:
     trivy:
       enabled: repl{{ ConfigOptionEquals "trivy_enabled" "1" }}
   optionalValues:
-    # Embedded Cluster - Use Ingress
+    # Embedded Cluster - Use Ingress with HTTPS
     - when: 'repl{{ eq Distribution "embedded-cluster" }}'
       values:
         expose:
           type: ingress
           tls:
-            enabled: false
+            enabled: true
+            certSource: auto
           ingress:
             hosts:
               core: repl{{ ConfigOption "harbor_hostname" }}
             className: nginx
-        externalURL: http://repl{{ ConfigOption "harbor_hostname" }}
+        externalURL: https://repl{{ ConfigOption "harbor_hostname" }}
 
     # KOTS - Use ClusterIP
     - when: 'repl{{ ne Distribution "embedded-cluster" }}'

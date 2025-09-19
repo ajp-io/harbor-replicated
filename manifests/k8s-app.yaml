@@ -6,5 +6,5 @@ spec:
   descriptor:
     links:
       - description: Open App
-        # needs to match applicationUrl in kots-app.yaml
-        url: "http://harbor"
+        # Embedded cluster uses direct HTTPS ingress, KOTS uses port-forward to http://harbor
+        url: '{{repl if eq Distribution "embedded-cluster" }}https://{{repl ConfigOption "harbor_hostname" }}{{repl else }}http://harbor{{repl end }}'
