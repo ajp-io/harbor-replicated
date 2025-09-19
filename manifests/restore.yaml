@@ -1,7 +1,7 @@
 apiVersion: velero.io/v1
 kind: Restore
 metadata:
-  name: restore
+  name: harbor-enterprise-restore
 spec:
   # the name of the Backup resource that you created
   backupName: backup

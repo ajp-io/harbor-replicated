@@ -1,7 +1,7 @@
 apiVersion: kots.io/v1beta1
 kind: Config
 metadata:
-  name: harbor-config
+  name: harbor-enterprise-config
 spec:
   groups:
   - name: harbor_settings
@@ -13,6 +13,18 @@ spec:
       type: password
       required: true
       help_text: Initial password for the Harbor admin user
+
+    - name: harbor_hostname
+      title: Harbor Hostname
+      type: text
+      help_text: "The domain name that will be used to access your Harbor registry"
+      when: repl{{ eq Distribution "embedded-cluster" }}
+
+    - name: trivy_enabled
+      title: Enable Trivy Scanner
+      type: bool
+      default: "1"
+      help_text: Enable Trivy vulnerability scanner for image scanning
 
   - name: database_settings
     title: Database Settings

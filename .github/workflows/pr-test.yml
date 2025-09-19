@@ -92,7 +92,7 @@ jobs:
           tar xf replicated.tar.gz
           sudo mv replicated /usr/local/bin/
 
-      - name: Create test VM
+      - name: Create test VM and expose ingress port
         id: vm
         run: |
           # Create VM for testing with 10 minute wait and unique name
@@ -118,8 +118,25 @@ jobs:
             exit 1
           fi
 
-          echo "vm_id=$VM_ID" >> $GITHUB_OUTPUT
           echo "✅ VM created and ready: $VM_ID"
+
+          # Expose port 80 for NGINX ingress
+          echo "Exposing port 80 for ingress on VM: $VM_ID"
+          EXPOSE_OUTPUT=$(replicated vm port expose $VM_ID --port 80 --protocol http --output json)
+          echo "Port expose output:"
+          echo "$EXPOSE_OUTPUT"
+
+          HOSTNAME=$(echo "$EXPOSE_OUTPUT" | jq -r '.hostname')
+
+          if [[ -z "$HOSTNAME" || "$HOSTNAME" == "null" ]]; then
+            echo "❌ Failed to get hostname from port expose output"
+            exit 1
+          fi
+
+          echo "✅ Port 80 exposed. Harbor will be accessible at: http://$HOSTNAME"
+
+          echo "vm_id=$VM_ID" >> $GITHUB_OUTPUT
+          echo "hostname=$HOSTNAME" >> $GITHUB_OUTPUT
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
           REPLICATED_APP: ${{ env.REPLICATED_APP }}
@@ -161,9 +178,10 @@ jobs:
           SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
           echo "SSH endpoint: $SSH_ENDPOINT"
 
-          # Run the test script on the VM with the test version
+          # Run the test script on the VM with the test version and hostname
           echo "Running embedded cluster installation test for version: ${{ needs.create-release.outputs.test_version }}"
-          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'chmod +x /tmp/test.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" /tmp/test.sh'
+          echo "Harbor will be accessible at: http://${{ steps.vm.outputs.hostname }}"
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'chmod +x /tmp/test.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" /tmp/test.sh'
 
           echo "Test completed successfully!"
         env:
@@ -180,44 +198,6 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
-      - name: Report test results
-        if: always()
-        run: |
-          TEST_OUTCOME="${{ steps.test.outcome }}"
-
-          if [[ "$TEST_OUTCOME" == "success" ]]; then
-            echo "✅ Embedded cluster installation test PASSED"
-            echo "The changes in this PR work correctly with embedded cluster deployment."
-          elif [[ "$TEST_OUTCOME" == "failure" ]]; then
-            echo "❌ Embedded cluster installation test FAILED"
-            echo "There may be issues with the changes in this PR. Please review the logs above."
-
-            # Show VM info for debugging
-            if [[ -n "${{ steps.vm.outputs.vm_id }}" ]]; then
-              echo ""
-              echo "🔍 Debug Information:"
-              echo "VM ID: ${{ steps.vm.outputs.vm_id }}"
-              echo "VM has been left running for debugging (1h TTL)"
-              echo "You can SSH to it using: ssh \$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)"
-            fi
-            exit 1
-          elif [[ "$TEST_OUTCOME" == "skipped" || -z "$TEST_OUTCOME" ]]; then
-            echo "❌ Embedded cluster installation test was SKIPPED due to earlier failures"
-            echo "Please check the logs above to see what step failed."
-
-            # Show VM info for debugging if VM was created
-            if [[ -n "${{ steps.vm.outputs.vm_id }}" ]]; then
-              echo ""
-              echo "🔍 Debug Information:"
-              echo "VM ID: ${{ steps.vm.outputs.vm_id }}"
-              echo "VM has been left running for debugging (1h TTL)"
-              echo "You can SSH to it using: ssh \$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)"
-            fi
-            exit 1
-          else
-            echo "❌ Embedded cluster installation test had unexpected outcome: $TEST_OUTCOME"
-            exit 1
-          fi
 
   test-kots:
     needs: create-release
@@ -237,17 +217,17 @@ jobs:
           tar xf replicated.tar.gz
           sudo mv replicated /usr/local/bin/
 
-      - name: Create K3S cluster
+      - name: Create Kind cluster
         id: cluster
         run: |
-          # Create K3S cluster for KOTS testing
+          # Create Kind cluster for KOTS testing
           COMMIT_SHORT=$(git rev-parse --short HEAD)
           CLUSTER_NAME="kots-pr${{ github.event.pull_request.number }}-r${{ github.run_number }}-${COMMIT_SHORT}"
-          echo "Creating K3S cluster for KOTS testing: $CLUSTER_NAME (waiting up to 10 minutes)..."
+          echo "Creating Kind cluster for KOTS testing: $CLUSTER_NAME (waiting up to 10 minutes)..."
 
           CLUSTER_OUTPUT=$(replicated cluster create \
-            --distribution k3s \
-            --version 1.33.4 \
+            --distribution kind \
+            --version 1.34 \
             --instance-type r1.small \
             --name "$CLUSTER_NAME" \
             --wait 10m \
@@ -265,7 +245,7 @@ jobs:
           fi
 
           echo "cluster_id=$CLUSTER_ID" >> $GITHUB_OUTPUT
-          echo "✅ K3S cluster created and ready: $CLUSTER_ID"
+          echo "✅ Kind cluster created and ready: $CLUSTER_ID"
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
@@ -298,34 +278,14 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
-      - name: Cleanup K3S cluster
+      - name: Cleanup Kind cluster
         if: success()
         run: |
           if [[ -n "${{ steps.cluster.outputs.cluster_id }}" ]]; then
-            echo "✅ Test passed! Cleaning up K3S cluster: ${{ steps.cluster.outputs.cluster_id }}"
+            echo "✅ Test passed! Cleaning up Kind cluster: ${{ steps.cluster.outputs.cluster_id }}"
             replicated cluster rm ${{ steps.cluster.outputs.cluster_id }} || true
             echo "Cluster cleanup completed"
           fi
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
-      - name: Report test results
-        if: always()
-        run: |
-          if [[ "${{ job.status }}" == "success" ]]; then
-            echo "✅ KOTS installation test PASSED"
-            echo "The changes in this PR work correctly with KOTS deployment."
-          else
-            echo "❌ KOTS installation test FAILED"
-            echo "There may be issues with the changes in this PR. Please review the logs above."
-
-            # Show cluster info for debugging
-            if [[ -n "${{ steps.cluster.outputs.cluster_id }}" ]]; then
-              echo ""
-              echo "🔍 Debug Information:"
-              echo "Cluster ID: ${{ steps.cluster.outputs.cluster_id }}"
-              echo "Cluster has been left running for debugging (1h TTL)"
-              echo "You can access it using: replicated cluster kubeconfig ${{ steps.cluster.outputs.cluster_id }}"
-            fi
-            exit 1
-          fi

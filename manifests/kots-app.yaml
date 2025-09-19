@@ -1,9 +1,9 @@
 apiVersion: kots.io/v1beta1
 kind: Application
 metadata:
-  name: harbor
+  name: harbor-enterprise
 spec:
-  title: Harbor
+  title: Harbor Enterprise
   statusInformers:
     # Core Harbor components (always deployed)
     - deployment/harbor-core
@@ -29,7 +29,7 @@ spec:
 
   ports:
     - serviceName: "harbor"
-      servicePort: 80
-      localPort: 30002
+      servicePort: 8080
+      localPort: 30001
       applicationUrl: "http://harbor"
   icon: https://raw.githubusercontent.com/goharbor/website/main/static/img/logos/harbor-icon-color.png

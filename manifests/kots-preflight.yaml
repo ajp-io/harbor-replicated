@@ -1,7 +1,7 @@
 apiVersion: troubleshoot.replicated.com/v1beta1
 kind: Preflight
 metadata:
-  name: harbor-preflight-checks
+  name: harbor-enterprise-preflight-checks
 spec:
   analyzers:
     - clusterVersion:
