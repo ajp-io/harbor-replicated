@@ -8,15 +8,11 @@ spec:
     chartVersion: "4.13.2"
   releaseName: ingress-nginx
   weight: -20
+  exclude: 'repl{{ ne Distribution "embedded-cluster" }}'
   helmUpgradeFlags:
     - --wait
     - --timeout
     - 5m
-  optionalValues:
-    # Only deploy nginx-ingress in embedded cluster
-    - when: 'repl{{ ne Distribution "embedded-cluster" }}'
-      recursiveMerge: false
-      values: {}
   values:
     controller:
       service:
@@ -31,19 +27,3 @@ spec:
         patch:
           image:
             digest: ""
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ingress-nginx-registry
-  namespace: default
-stringData:
-  .dockerconfigjson: repl{{ ImagePullSecretValue }}
-type: kubernetes.io/dockerconfigjson
----
-apiVersion: kots.io/v1beta1
-kind: OptionalResource
-metadata:
-  name: ingress-nginx-chart
-spec:
-  when: 'repl{{ eq Distribution "embedded-cluster" }}'
