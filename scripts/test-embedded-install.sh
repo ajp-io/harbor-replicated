@@ -106,6 +106,23 @@ $KUBECTL wait deployment/replicated --for=condition=available -n kotsadm --timeo
 echo "Waiting for Replicated SDK service to have endpoints..."
 $KUBECTL wait --for=jsonpath='{.subsets}' endpoints/replicated -n kotsadm --timeout=300s
 
+echo "Testing Replicated SDK integration - checking for customerEmail value..."
+# Get Harbor release values to check if SDK populated global.replicated.customerEmail
+RELEASE_NAME=$($KUBECTL get secrets -n kotsadm -l owner=helm -o json | jq -r '.items[] | select(.metadata.labels.name | startswith("harbor")) | .metadata.labels.name' | head -1)
+if [[ -n "$RELEASE_NAME" ]]; then
+    echo "Found Harbor release: $RELEASE_NAME"
+    echo "Retrieving Helm values to check for global.replicated.customerEmail..."
+    helm get values "$RELEASE_NAME" -n kotsadm --all | tee /tmp/harbor-values.yaml
+    echo ""
+    echo "Looking for global.replicated.customerEmail specifically:"
+    grep -A 10 "global:" /tmp/harbor-values.yaml | grep -A 5 "replicated:" || echo "⚠️  No global.replicated section found"
+    echo ""
+    echo "Full global section:"
+    grep -A 20 "global:" /tmp/harbor-values.yaml || echo "⚠️  No global section found"
+else
+    echo "⚠️  Could not find Harbor Helm release to check values"
+fi
+
 echo "All resources verified and ready!"
 
 # Verify NGINX Ingress Controller
