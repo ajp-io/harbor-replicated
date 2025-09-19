@@ -5,6 +5,8 @@ metadata:
 spec:
   descriptor:
     links:
-      - description: Open App
+      - description: Harbor Registry
         # Embedded cluster uses direct HTTPS ingress, KOTS uses port-forward to http://harbor
         url: '{{repl if eq Distribution "embedded-cluster" }}https://{{repl ConfigOption "harbor_hostname" }}{{repl else }}http://harbor{{repl end }}'
+      - description: Documentation
+        url: https://goharbor.io/docs/
