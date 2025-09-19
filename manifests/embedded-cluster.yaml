@@ -19,6 +19,8 @@ spec:
       repositories:
         - name: ingress-nginx
           url: https://kubernetes.github.io/ingress-nginx
+        - name: jetstack
+          url: https://charts.jetstack.io
       charts:
         - name: ingress-nginx
           chartname: ingress-nginx/ingress-nginx
@@ -38,6 +40,12 @@ spec:
                 patch:
                   image:
                     digest: ""
+        - name: cert-manager
+          chartname: jetstack/cert-manager
+          namespace: cert-manager
+          version: "v1.13.3"
+          values: |
+            installCRDs: true
   # unsupportedOverrides:
   #   k0s: |
   #     config:

@@ -25,7 +25,9 @@ spec:
           type: ingress
           tls:
             enabled: true
-            certSource: auto
+            certSource: secret
+            secret:
+              secretName: harbor-tls-cert
           ingress:
             hosts:
               core: repl{{ ConfigOption "harbor_hostname" }}

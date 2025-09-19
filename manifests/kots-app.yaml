@@ -31,6 +31,13 @@ spec:
     - deployment/replicated
     - service/replicated
 
+    # Embedded Cluster components (only when Distribution = embedded-cluster)
+    - '{{repl if (eq Distribution "embedded-cluster") }}deployment/ingress-nginx-controller{{repl end}}'
+    - '{{repl if (eq Distribution "embedded-cluster") }}service/ingress-nginx-controller{{repl end}}'
+    - '{{repl if (eq Distribution "embedded-cluster") }}deployment/cert-manager{{repl end}}'
+    - '{{repl if (eq Distribution "embedded-cluster") }}deployment/cert-manager-cainjector{{repl end}}'
+    - '{{repl if (eq Distribution "embedded-cluster") }}deployment/cert-manager-webhook{{repl end}}'
+
   ports:
     - serviceName: "harbor"
       servicePort: 8080
