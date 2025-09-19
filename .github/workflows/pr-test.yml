@@ -46,21 +46,29 @@ jobs:
           echo "test_version=$VERSION" >> $GITHUB_OUTPUT
           echo "Generated unique test version: $VERSION"
 
-      - name: Package Helm chart
+      - name: Package Helm charts
         run: |
           # Clean any existing packages
           rm -f manifests/*.tgz
 
-          # Update dependencies to fetch the Replicated SDK
-          helm dependency update harbor
+          # Update dependencies to fetch the Replicated SDK for Harbor chart
+          helm dependency update charts/harbor
 
-          # Package the chart
-          helm package harbor -d manifests -u
-          echo "Packaged chart:"
+          # Package all three charts
+          echo "Packaging Harbor chart..."
+          helm package charts/harbor -d manifests -u
+
+          echo "Packaging nginx-ingress chart..."
+          helm package charts/ingress-nginx -d manifests -u
+
+          echo "Packaging cert-manager chart..."
+          helm package charts/cert-manager -d manifests -u
+
+          echo "Packaged charts:"
           ls -la manifests/*.tgz
 
           # Clean up downloaded dependencies
-          rm -rf harbor/charts/
+          rm -rf charts/harbor/charts/
 
       - name: Create test release
         run: |
