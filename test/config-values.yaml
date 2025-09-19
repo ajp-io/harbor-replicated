@@ -21,3 +21,5 @@ spec:
       value: admin123
     harbor_hostname:
       value: "harbor.local"
+    trivy_enabled:
+      default: "1"
