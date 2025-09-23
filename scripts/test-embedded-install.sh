@@ -152,8 +152,8 @@ $KUBECTL wait deployment/ingress-nginx-controller --for=condition=available -n k
 
 # Check cert-manager resources
 echo "Checking ClusterIssuer for Let's Encrypt..."
-$KUBECTL get clusterissuer letsencrypt-prod || {
-    echo "❌ Let's Encrypt ClusterIssuer not found"
+$KUBECTL get clusterissuer letsencrypt-staging || {
+    echo "❌ Let's Encrypt staging ClusterIssuer not found"
     exit 1
 }
 
