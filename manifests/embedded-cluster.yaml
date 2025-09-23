@@ -5,37 +5,6 @@ spec:
   domains:
     replicatedAppDomain: updates.alexparker.info
     proxyRegistryDomain: images.alexparker.info
-    roles:
-      - name: primary
-        labels:
-          primary: "true"
-        controller: true
-      - name: database
-        labels:
-          database: "true"
-    clusterConfiugrations:
-      - name: HA 
-        roles:
-          - name: primary
-            num: 3
-          - name: database
-            num: 4
-      - name: Non-HA
-        roles:
-          - name: primary
-            num: 1
-          - name: database
-            num: 1
-      - selector:
-        variable: repl{{ LicenseFieldValue cluster_configuration }}
-        question:
-          title: Do you want feature X?
-          items:
-          - name: Yes
-            clusterConfiguation: HA
-          - name: Yes
-            clusterConfiguation: Non-HA
-
   # roles:
   #   controller:
   #     name: primary
