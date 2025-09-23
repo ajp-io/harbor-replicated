@@ -34,7 +34,7 @@ spec:
               core: repl{{ ConfigOption "harbor_hostname" }}
             className: nginx
             annotations:
-              cert-manager.io/cluster-issuer: repl{{ if ConfigOptionEquals "letsencrypt_environment" "production" }}letsencrypt-prod{{ else }}letsencrypt-staging{{ end }}
+              cert-manager.io/cluster-issuer: 'repl{{ if ConfigOptionEquals "letsencrypt_environment" "production" }}letsencrypt-prod{{ else }}letsencrypt-staging{{ end }}'
         externalURL: https://repl{{ ConfigOption "harbor_hostname" }}
 
     # KOTS - Use ClusterIP
