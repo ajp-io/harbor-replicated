@@ -19,8 +19,8 @@ spec:
     trivy:
       enabled: repl{{ ConfigOptionEquals "trivy_enabled" "1" }}
   optionalValues:
-    # Embedded Cluster - Use Ingress with HTTPS
-    - when: 'repl{{ eq Distribution "embedded-cluster" }}'
+    # Embedded Cluster - Use Ingress with HTTPS (Staging)
+    - when: 'repl{{ and (eq Distribution "embedded-cluster") (ConfigOptionEquals "letsencrypt_environment" "staging") }}'
       values:
         expose:
           type: ingress
@@ -34,7 +34,25 @@ spec:
               core: repl{{ ConfigOption "harbor_hostname" }}
             className: nginx
             annotations:
-              cert-manager.io/cluster-issuer: 'repl{{ if ConfigOptionEquals "letsencrypt_environment" "production" }}letsencrypt-prod{{ else }}letsencrypt-staging{{ end }}'
+              cert-manager.io/cluster-issuer: letsencrypt-staging
+        externalURL: https://repl{{ ConfigOption "harbor_hostname" }}
+
+    # Embedded Cluster - Use Ingress with HTTPS (Production)
+    - when: 'repl{{ and (eq Distribution "embedded-cluster") (ConfigOptionEquals "letsencrypt_environment" "production") }}'
+      values:
+        expose:
+          type: ingress
+          tls:
+            enabled: true
+            certSource: secret
+            secret:
+              secretName: harbor-tls-cert
+          ingress:
+            hosts:
+              core: repl{{ ConfigOption "harbor_hostname" }}
+            className: nginx
+            annotations:
+              cert-manager.io/cluster-issuer: letsencrypt-prod
         externalURL: https://repl{{ ConfigOption "harbor_hostname" }}
 
     # KOTS - Use ClusterIP
