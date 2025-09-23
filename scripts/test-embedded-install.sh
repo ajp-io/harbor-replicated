@@ -112,15 +112,56 @@ $KUBECTL wait --for=jsonpath='{.subsets}' endpoints/replicated -n kotsadm --time
 
 echo "All resources verified and ready!"
 
+# Verify cert-manager
+echo "Checking cert-manager deployment..."
+$KUBECTL get deployment/cert-manager -n kotsadm || {
+    echo "❌ cert-manager deployment not found"
+    exit 1
+}
+
+echo "Waiting for cert-manager to be available..."
+$KUBECTL wait deployment/cert-manager --for=condition=available -n kotsadm --timeout=300s
+
+echo "Checking cert-manager-webhook deployment..."
+$KUBECTL get deployment/cert-manager-webhook -n kotsadm || {
+    echo "❌ cert-manager-webhook deployment not found"
+    exit 1
+}
+
+echo "Waiting for cert-manager-webhook to be available..."
+$KUBECTL wait deployment/cert-manager-webhook --for=condition=available -n kotsadm --timeout=300s
+
+echo "Checking cert-manager-cainjector deployment..."
+$KUBECTL get deployment/cert-manager-cainjector -n kotsadm || {
+    echo "❌ cert-manager-cainjector deployment not found"
+    exit 1
+}
+
+echo "Waiting for cert-manager-cainjector to be available..."
+$KUBECTL wait deployment/cert-manager-cainjector --for=condition=available -n kotsadm --timeout=300s
+
 # Verify NGINX Ingress Controller
 echo "Checking NGINX Ingress Controller..."
-$KUBECTL get deployment/ingress-nginx-controller -n ingress-nginx || {
+$KUBECTL get deployment/ingress-nginx-controller -n kotsadm || {
     echo "❌ NGINX Ingress Controller not found"
     exit 1
 }
 
 echo "Waiting for NGINX Ingress Controller to be available..."
-$KUBECTL wait deployment/ingress-nginx-controller --for=condition=available -n ingress-nginx --timeout=300s
+$KUBECTL wait deployment/ingress-nginx-controller --for=condition=available -n kotsadm --timeout=300s
+
+# Check cert-manager resources
+echo "Checking ClusterIssuer for Let's Encrypt..."
+$KUBECTL get clusterissuer letsencrypt-prod || {
+    echo "❌ Let's Encrypt ClusterIssuer not found"
+    exit 1
+}
+
+echo "Checking Certificate resource for Harbor..."
+$KUBECTL get certificate -n kotsadm | grep harbor || {
+    echo "❌ Harbor Certificate resource not found"
+    exit 1
+}
 
 # Check ingress resources
 echo "Checking Harbor Ingress resources..."
@@ -129,12 +170,39 @@ $KUBECTL get ingress -n kotsadm | grep harbor || {
     exit 1
 }
 
+# Validate Let's Encrypt certificate status
+echo "Checking Let's Encrypt certificate status..."
+CERT_NAME=$($KUBECTL get certificate -n kotsadm -o name | grep harbor | head -1 | cut -d'/' -f2)
+if [[ -n "$CERT_NAME" ]]; then
+    echo "Found certificate: $CERT_NAME"
+    $KUBECTL describe certificate "$CERT_NAME" -n kotsadm | grep -E "(Status|Ready|Message)" || true
+
+    # Check if certificate is ready
+    if $KUBECTL get certificate "$CERT_NAME" -n kotsadm -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' | grep -q "True"; then
+        echo "✅ Let's Encrypt certificate is ready"
+    else
+        echo "⚠️  Let's Encrypt certificate is not ready yet"
+        echo "Certificate status:"
+        $KUBECTL get certificate "$CERT_NAME" -n kotsadm -o yaml | grep -A10 "status:"
+    fi
+else
+    echo "❌ No Harbor certificate found"
+fi
+
 # Test Harbor UI accessibility via HTTPS ingress
 echo "Testing Harbor UI accessibility via HTTPS ingress at: https://${HOSTNAME}"
 for i in {1..10}; do
     echo "Attempt $i/10: Testing Harbor UI via HTTPS..."
     if curl -f -s -I -k "https://${HOSTNAME}" | grep -q "HTTP/[0-9.]\+ 200"; then
         echo "✅ Harbor UI is accessible via HTTPS ingress!"
+
+        # Test with valid certificate (no -k flag)
+        echo "Testing certificate validity..."
+        if curl -f -s -I "https://${HOSTNAME}" | grep -q "HTTP/[0-9.]\+ 200"; then
+            echo "✅ Harbor UI accessible with valid Let's Encrypt certificate!"
+        else
+            echo "⚠️  Harbor UI accessible but certificate may not be valid"
+        fi
         break
     elif [[ $i -eq 10 ]]; then
         echo "❌ Harbor UI not accessible via HTTPS after 10 attempts"
