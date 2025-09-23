@@ -47,8 +47,8 @@ sudo ./harbor-enterprise install \
 echo "Installation complete! Verifying cluster and pods..."
 
 # Wait for Harbor to deploy asynchronously after EC installation
-echo "Waiting 60 seconds for Harbor resources to deploy asynchronously..."
-sleep 60
+echo "Waiting 90 seconds for Harbor resources to deploy asynchronously..."
+sleep 90
 
 # Set kubectl path and kubeconfig
 KUBECTL="sudo KUBECONFIG=/var/lib/embedded-cluster/k0s/pki/admin.conf /var/lib/embedded-cluster/bin/kubectl"
