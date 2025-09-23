@@ -26,6 +26,18 @@ spec:
       default: "1"
       help_text: Enable Trivy vulnerability scanner for image scanning
 
+    - name: letsencrypt_environment
+      title: Let's Encrypt Environment
+      type: radio
+      items:
+      - name: staging
+        title: Staging (Testing - Untrusted Certificates)
+      - name: production
+        title: Production (Trusted Certificates)
+      default: staging
+      when: repl{{ eq Distribution "embedded-cluster" }}
+      help_text: Use staging for testing to avoid rate limits. Production certificates are trusted by browsers but limited to 5 per week.
+
   - name: database_settings
     title: Database Settings
     items:

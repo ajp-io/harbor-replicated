@@ -7,6 +7,7 @@ spec:
   chart:
     name: harbor
     chartVersion: 1.17.2
+  weight: 0
   helmUpgradeFlags:
     - --wait
     - --timeout
@@ -25,11 +26,15 @@ spec:
           type: ingress
           tls:
             enabled: true
-            certSource: auto
+            certSource: secret
+            secret:
+              secretName: harbor-tls-cert
           ingress:
             hosts:
               core: repl{{ ConfigOption "harbor_hostname" }}
             className: nginx
+            annotations:
+              cert-manager.io/cluster-issuer: repl{{ ConfigOptionEquals "letsencrypt_environment" "production" | ternary "letsencrypt-prod" "letsencrypt-staging" }}
         externalURL: https://repl{{ ConfigOption "harbor_hostname" }}
 
     # KOTS - Use ClusterIP
