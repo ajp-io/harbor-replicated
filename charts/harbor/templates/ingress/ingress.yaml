@@ -43,9 +43,6 @@ metadata:
 {{- end }}
   annotations:
 {{ toYaml $ingress.annotations | indent 4 }}
-{{- if eq .Values.expose.tls.certSource "secret" }}
-    cert-manager.io/cluster-issuer: letsencrypt-staging
-{{- end }}
 {{- if .Values.internalTLS.enabled }}
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
 {{- end }}

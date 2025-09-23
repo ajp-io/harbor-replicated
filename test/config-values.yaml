@@ -23,3 +23,5 @@ spec:
       value: "harbor.local"
     trivy_enabled:
       default: "1"
+    letsencrypt_environment:
+      default: staging
