@@ -84,13 +84,13 @@ KUBECTL="sudo KUBECONFIG=/var/lib/embedded-cluster/k0s/pki/admin.conf /var/lib/e
 echo "Waiting for components to deploy asynchronously in dependency order..."
 
 # Stage 1: NGINX Ingress Controller (deployed first)
-poll_for_resources "NGINX Ingress Controller" 90 "$KUBECTL get deployment ingress-nginx-controller -n kotsadm >/dev/null 2>&1"
+poll_for_resources "NGINX Ingress Controller" 180 "$KUBECTL get deployment ingress-nginx-controller -n kotsadm >/dev/null 2>&1"
 
 # Stage 2: cert-manager components (deployed after NGINX)
-poll_for_resources "cert-manager components" 90 "$KUBECTL get deployment cert-manager -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-webhook -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-cainjector -n kotsadm >/dev/null 2>&1"
+poll_for_resources "cert-manager components" 180 "$KUBECTL get deployment cert-manager -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-webhook -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-cainjector -n kotsadm >/dev/null 2>&1"
 
 # Stage 3: Harbor resources (deployed after cert-manager)
-poll_for_resources "Harbor resources" 90 "$KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1"
+poll_for_resources "Harbor resources" 180 "$KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1"
 
 echo "Checking cluster status..."
 $KUBECTL get nodes
