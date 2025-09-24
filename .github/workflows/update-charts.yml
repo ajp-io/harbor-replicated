@@ -245,8 +245,8 @@ jobs:
           BRANCH_NAME="update-${BRANCH_PARTS[*]}"
           BRANCH_NAME=${BRANCH_NAME:0:100}  # Limit branch name length
 
-          echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "pr_title=$PR_TITLE" >> "$GITHUB_OUTPUT"
+          echo "branch_name=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Create Pull Request
         if: steps.check-updates.outputs.update_available == 'true' && steps.check-pr.outputs.pr_exists == 'false'
