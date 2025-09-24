@@ -29,6 +29,11 @@ jobs:
         with:
           version: 'latest'
 
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Install Replicated CLI
         run: |
           curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
@@ -56,6 +61,35 @@ jobs:
           # Update dependencies to fetch the Replicated SDK for Harbor chart
           helm dependency update charts/harbor
 
+          # Apply overlays to charts before packaging
+          echo "Applying overlays to charts..."
+
+          # Function to apply overlay if it exists
+          apply_overlay() {
+            local chart_name="$1"
+            local overlay_file="chart-overlays/$chart_name/values-overlay.yaml"
+
+            if [[ -f "$overlay_file" ]]; then
+              echo "Applying overlay for $chart_name..."
+              # Create backup of original values
+              cp "charts/$chart_name/values.yaml" "charts/$chart_name/values.yaml.backup"
+              # Apply overlay using yq
+              yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
+                "charts/$chart_name/values.yaml" \
+                "$overlay_file" > "/tmp/$chart_name-values.yaml"
+              # Replace original with overlayed version
+              mv "/tmp/$chart_name-values.yaml" "charts/$chart_name/values.yaml"
+              echo "✅ Overlay applied for $chart_name"
+            else
+              echo "No overlay found for $chart_name, using original values"
+            fi
+          }
+
+          # Apply overlays for each chart
+          apply_overlay "harbor"
+          apply_overlay "ingress-nginx"
+          apply_overlay "cert-manager"
+
           # Package all three charts
           echo "Packaging Harbor chart..."
           helm package charts/harbor -d manifests -u
@@ -68,6 +102,15 @@ jobs:
 
           echo "Packaged charts:"
           ls -la manifests/*.tgz
+
+          # Restore original values files from backup
+          echo "Restoring original chart values..."
+          for chart in harbor ingress-nginx cert-manager; do
+            if [[ -f "charts/$chart/values.yaml.backup" ]]; then
+              mv "charts/$chart/values.yaml.backup" "charts/$chart/values.yaml"
+              echo "✅ Restored original values for $chart"
+            fi
+          done
 
           # Clean up downloaded dependencies
           rm -rf charts/harbor/charts/
