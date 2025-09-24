@@ -236,13 +236,18 @@ jobs:
           if [[ ${#PR_TITLE_PARTS[@]} -eq 1 ]]; then
             PR_TITLE="chore: Update ${PR_TITLE_PARTS[0]}"
           else
+            # Join with comma and space for better readability
+            OLD_IFS="$IFS"
             IFS=", "
             PR_TITLE="chore: Update ${PR_TITLE_PARTS[*]}"
+            IFS="$OLD_IFS"
           fi
 
           # Create branch name (truncate if too long)
+          OLD_IFS="$IFS"
           IFS="-"
           BRANCH_NAME="update-${BRANCH_PARTS[*]}"
+          IFS="$OLD_IFS"
           BRANCH_NAME=${BRANCH_NAME:0:100}  # Limit branch name length
 
           echo "pr_title=$PR_TITLE" >> "$GITHUB_OUTPUT"
