@@ -14,4 +14,4 @@ cainjector:
 
 startupapicheck:
   image:
-    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-ctl
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-startupapicheck
