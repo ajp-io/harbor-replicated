@@ -236,11 +236,9 @@ jobs:
           if [[ ${#PR_TITLE_PARTS[@]} -eq 1 ]]; then
             PR_TITLE="chore: Update ${PR_TITLE_PARTS[0]}"
           else
-            # Join with comma and space for better readability
-            OLD_IFS="$IFS"
-            IFS=", "
-            PR_TITLE="chore: Update ${PR_TITLE_PARTS[*]}"
-            IFS="$OLD_IFS"
+            # Join with comma and space for better readability using printf
+            PR_TITLE_JOINED=$(printf "%s, " "${PR_TITLE_PARTS[@]}")
+            PR_TITLE="chore: Update ${PR_TITLE_JOINED%, }"  # Remove trailing comma and space
           fi
 
           # Create branch name (truncate if too long)
