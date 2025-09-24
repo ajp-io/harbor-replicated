@@ -1,0 +1,17 @@
+# Cert-Manager Chart Values Overlay
+# This file replaces all cert-manager image repositories with our proxied registry.
+
+image:
+  repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-controller
+
+webhook:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-webhook
+
+cainjector:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-cainjector
+
+startupapicheck:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-ctl

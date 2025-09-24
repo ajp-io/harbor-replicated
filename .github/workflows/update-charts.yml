@@ -1,0 +1,337 @@
+name: Update Helm Charts
+
+on:
+  schedule:
+    # Check for updates daily at 9 AM UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  HARBOR_CHART_REPO: "https://helm.goharbor.io"
+  NGINX_CHART_REPO: "https://kubernetes.github.io/ingress-nginx"
+  CERTMANAGER_CHART_REPO: "https://charts.jetstack.io"
+
+jobs:
+  check-for-updates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Install yq (YAML processor)
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Check for chart and SDK updates
+        id: check-updates
+        run: |
+          # Make update script executable
+          chmod +x scripts/update-charts.sh
+
+          # Get current versions
+          CURRENT_HARBOR_VERSION=$(yq eval '.version' charts/harbor/Chart.yaml)
+          CURRENT_NGINX_VERSION=$(yq eval '.version' charts/ingress-nginx/Chart.yaml)
+          CURRENT_CERTMANAGER_VERSION=$(yq eval '.version' charts/cert-manager/Chart.yaml)
+          CURRENT_SDK_VERSION=$(yq eval '.dependencies[] | select(.name == "replicated") | .version' charts/harbor/Chart.yaml 2>/dev/null || echo "")
+
+          echo "Current versions:"
+          echo "  Harbor: $CURRENT_HARBOR_VERSION"
+          echo "  Nginx: $CURRENT_NGINX_VERSION"
+          echo "  Cert-Manager: $CURRENT_CERTMANAGER_VERSION"
+          echo "  SDK: ${CURRENT_SDK_VERSION:-"not present"}"
+
+          # Add repositories and get latest versions
+          helm repo add harbor-charts ${{ env.HARBOR_CHART_REPO }} --force-update
+          helm repo add nginx-charts ${{ env.NGINX_CHART_REPO }} --force-update
+          helm repo add certmanager-charts ${{ env.CERTMANAGER_CHART_REPO }} --force-update
+          helm repo update
+
+          LATEST_HARBOR_VERSION=$(helm search repo harbor-charts/harbor --version=">=0.0.0" -o json | jq -r '.[0].version')
+          LATEST_NGINX_VERSION=$(helm search repo nginx-charts/ingress-nginx --version=">=0.0.0" -o json | jq -r '.[0].version')
+          LATEST_CERTMANAGER_VERSION=$(helm search repo certmanager-charts/cert-manager --version=">=0.0.0" -o json | jq -r '.[0].version')
+
+          echo "Latest versions:"
+          echo "  Harbor: $LATEST_HARBOR_VERSION"
+          echo "  Nginx: $LATEST_NGINX_VERSION"
+          echo "  Cert-Manager: $LATEST_CERTMANAGER_VERSION"
+
+          # Get latest SDK version from GitHub releases
+          LATEST_SDK_VERSION=$(gh api repos/replicatedhq/replicated-sdk/releases/latest --jq '.tag_name' | sed 's/^v//')
+          echo "  SDK: $LATEST_SDK_VERSION"
+
+          # Check if any updates are needed
+          HARBOR_UPDATE_NEEDED=false
+          NGINX_UPDATE_NEEDED=false
+          CERTMANAGER_UPDATE_NEEDED=false
+          SDK_UPDATE_NEEDED=false
+
+          if [[ "$CURRENT_HARBOR_VERSION" != "$LATEST_HARBOR_VERSION" ]]; then
+            HARBOR_UPDATE_NEEDED=true
+            echo "Harbor update available: $CURRENT_HARBOR_VERSION -> $LATEST_HARBOR_VERSION"
+          fi
+
+          if [[ "$CURRENT_NGINX_VERSION" != "$LATEST_NGINX_VERSION" ]]; then
+            NGINX_UPDATE_NEEDED=true
+            echo "Nginx update available: $CURRENT_NGINX_VERSION -> $LATEST_NGINX_VERSION"
+          fi
+
+          if [[ "$CURRENT_CERTMANAGER_VERSION" != "$LATEST_CERTMANAGER_VERSION" ]]; then
+            CERTMANAGER_UPDATE_NEEDED=true
+            echo "Cert-Manager update available: $CURRENT_CERTMANAGER_VERSION -> $LATEST_CERTMANAGER_VERSION"
+          fi
+
+          if [[ "$CURRENT_SDK_VERSION" != "$LATEST_SDK_VERSION" ]]; then
+            SDK_UPDATE_NEEDED=true
+            echo "SDK update available: ${CURRENT_SDK_VERSION:-"not present"} -> $LATEST_SDK_VERSION"
+          fi
+
+          # Set output variables
+          if [[ "$HARBOR_UPDATE_NEEDED" == true || "$NGINX_UPDATE_NEEDED" == true || "$CERTMANAGER_UPDATE_NEEDED" == true || "$SDK_UPDATE_NEEDED" == true ]]; then
+            echo "update_available=true" >> $GITHUB_OUTPUT
+            echo "Updates needed - Harbor: $HARBOR_UPDATE_NEEDED, Nginx: $NGINX_UPDATE_NEEDED, Cert-Manager: $CERTMANAGER_UPDATE_NEEDED, SDK: $SDK_UPDATE_NEEDED"
+          else
+            echo "update_available=false" >> $GITHUB_OUTPUT
+            echo "All charts and SDK are up to date"
+          fi
+
+          echo "current_harbor_version=$CURRENT_HARBOR_VERSION" >> $GITHUB_OUTPUT
+          echo "latest_harbor_version=$LATEST_HARBOR_VERSION" >> $GITHUB_OUTPUT
+          echo "current_nginx_version=$CURRENT_NGINX_VERSION" >> $GITHUB_OUTPUT
+          echo "latest_nginx_version=$LATEST_NGINX_VERSION" >> $GITHUB_OUTPUT
+          echo "current_certmanager_version=$CURRENT_CERTMANAGER_VERSION" >> $GITHUB_OUTPUT
+          echo "latest_certmanager_version=$LATEST_CERTMANAGER_VERSION" >> $GITHUB_OUTPUT
+          echo "current_sdk_version=$CURRENT_SDK_VERSION" >> $GITHUB_OUTPUT
+          echo "latest_sdk_version=$LATEST_SDK_VERSION" >> $GITHUB_OUTPUT
+          echo "harbor_update_needed=$HARBOR_UPDATE_NEEDED" >> $GITHUB_OUTPUT
+          echo "nginx_update_needed=$NGINX_UPDATE_NEEDED" >> $GITHUB_OUTPUT
+          echo "certmanager_update_needed=$CERTMANAGER_UPDATE_NEEDED" >> $GITHUB_OUTPUT
+          echo "sdk_update_needed=$SDK_UPDATE_NEEDED" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update charts using script
+        if: steps.check-updates.outputs.update_available == 'true'
+        run: |
+          # Run our update script
+          ./scripts/update-charts.sh
+
+      - name: Generate detailed changelog
+        if: steps.check-updates.outputs.update_available == 'true'
+        id: changelog
+        run: |
+          # Create a formatted changelog for the PR
+          cat > /tmp/changelog.md << 'EOF'
+          ## 📋 Detailed Changes
+
+          EOF
+
+          # Add Harbor changes if updated
+          if [[ "${{ steps.check-updates.outputs.harbor_update_needed }}" == "true" ]]; then
+            echo "### 🏗️ Harbor Chart Update" >> /tmp/changelog.md
+            echo "- Updated from v${{ steps.check-updates.outputs.current_harbor_version }} to v${{ steps.check-updates.outputs.latest_harbor_version }}" >> /tmp/changelog.md
+            echo "- See [upstream releases](https://github.com/goharbor/harbor-helm/releases/tag/v${{ steps.check-updates.outputs.latest_harbor_version }}) for detailed changes" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+          fi
+
+          # Add Nginx changes if updated
+          if [[ "${{ steps.check-updates.outputs.nginx_update_needed }}" == "true" ]]; then
+            echo "### 🌐 Ingress-Nginx Chart Update" >> /tmp/changelog.md
+            echo "- Updated from v${{ steps.check-updates.outputs.current_nginx_version }} to v${{ steps.check-updates.outputs.latest_nginx_version }}" >> /tmp/changelog.md
+            echo "- See [upstream releases](https://github.com/kubernetes/ingress-nginx/releases/tag/helm-chart-${{ steps.check-updates.outputs.latest_nginx_version }}) for detailed changes" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+          fi
+
+          # Add Cert-Manager changes if updated
+          if [[ "${{ steps.check-updates.outputs.certmanager_update_needed }}" == "true" ]]; then
+            echo "### 🔒 Cert-Manager Chart Update" >> /tmp/changelog.md
+            echo "- Updated from ${{ steps.check-updates.outputs.current_certmanager_version }} to ${{ steps.check-updates.outputs.latest_certmanager_version }}" >> /tmp/changelog.md
+            echo "- See [upstream releases](https://github.com/cert-manager/cert-manager/releases/tag/${{ steps.check-updates.outputs.latest_certmanager_version }}) for detailed changes" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+          fi
+
+          # Add SDK changes if updated
+          if [[ "${{ steps.check-updates.outputs.sdk_update_needed }}" == "true" ]]; then
+            echo "### 🔧 Replicated SDK Update" >> /tmp/changelog.md
+            if [[ -n "${{ steps.check-updates.outputs.current_sdk_version }}" ]]; then
+              echo "- Updated from v${{ steps.check-updates.outputs.current_sdk_version }} to v${{ steps.check-updates.outputs.latest_sdk_version }}" >> /tmp/changelog.md
+            else
+              echo "- Added Replicated SDK v${{ steps.check-updates.outputs.latest_sdk_version }}" >> /tmp/changelog.md
+            fi
+            echo "- See [SDK releases](https://github.com/replicatedhq/replicated-sdk/releases/tag/v${{ steps.check-updates.outputs.latest_sdk_version }}) for detailed changes" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+          fi
+
+          # Store changelog for PR body
+          {
+            echo 'CHANGELOG<<EOF'
+            cat /tmp/changelog.md
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Check for existing PR
+        if: steps.check-updates.outputs.update_available == 'true'
+        id: check-pr
+        run: |
+          # Check if a PR already exists for similar updates
+          echo "Checking for existing update PRs..."
+
+          # Search for open PRs with automated-pr label
+          EXISTING_PR=$(gh pr list \
+            --state open \
+            --label "automated-pr" \
+            --json number,title,headRefName \
+            --jq '.[] | select(.title | test("(Harbor|Nginx|Cert-Manager|chart|SDK).*[Uu]pdate")) | .number' \
+            | head -1)
+
+          if [[ -n "$EXISTING_PR" ]]; then
+            echo "An open update PR already exists: PR #$EXISTING_PR"
+            echo "pr_exists=true" >> $GITHUB_OUTPUT
+            echo "existing_pr_number=$EXISTING_PR" >> $GITHUB_OUTPUT
+          else
+            echo "No existing update PR found"
+            echo "pr_exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate PR title and branch name
+        if: steps.check-updates.outputs.update_available == 'true' && steps.check-pr.outputs.pr_exists == 'false'
+        id: pr-details
+        run: |
+          # Generate a comprehensive PR title based on what's being updated
+          PR_TITLE_PARTS=()
+          BRANCH_PARTS=()
+
+          if [[ "${{ steps.check-updates.outputs.harbor_update_needed }}" == "true" ]]; then
+            PR_TITLE_PARTS+=("Harbor v${{ steps.check-updates.outputs.latest_harbor_version }}")
+            BRANCH_PARTS+=("harbor-v${{ steps.check-updates.outputs.latest_harbor_version }}")
+          fi
+
+          if [[ "${{ steps.check-updates.outputs.nginx_update_needed }}" == "true" ]]; then
+            PR_TITLE_PARTS+=("Nginx v${{ steps.check-updates.outputs.latest_nginx_version }}")
+            BRANCH_PARTS+=("nginx-v${{ steps.check-updates.outputs.latest_nginx_version }}")
+          fi
+
+          if [[ "${{ steps.check-updates.outputs.certmanager_update_needed }}" == "true" ]]; then
+            PR_TITLE_PARTS+=("Cert-Manager ${{ steps.check-updates.outputs.latest_certmanager_version }}")
+            BRANCH_PARTS+=("certmgr-${{ steps.check-updates.outputs.latest_certmanager_version }}")
+          fi
+
+          if [[ "${{ steps.check-updates.outputs.sdk_update_needed }}" == "true" ]]; then
+            PR_TITLE_PARTS+=("SDK v${{ steps.check-updates.outputs.latest_sdk_version }}")
+            BRANCH_PARTS+=("sdk-v${{ steps.check-updates.outputs.latest_sdk_version }}")
+          fi
+
+          # Create title
+          if [[ ${#PR_TITLE_PARTS[@]} -eq 1 ]]; then
+            PR_TITLE="chore: Update ${PR_TITLE_PARTS[0]}"
+          else
+            IFS=", "
+            PR_TITLE="chore: Update ${PR_TITLE_PARTS[*]}"
+          fi
+
+          # Create branch name (truncate if too long)
+          IFS="-"
+          BRANCH_NAME="update-${BRANCH_PARTS[*]}"
+          BRANCH_NAME=${BRANCH_NAME:0:100}  # Limit branch name length
+
+          echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.check-updates.outputs.update_available == 'true' && steps.check-pr.outputs.pr_exists == 'false'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            ${{ steps.pr-details.outputs.pr_title }}
+
+            ${{ steps.check-updates.outputs.harbor_update_needed == 'true' && format('- Update Harbor chart from v{0} to v{1}', steps.check-updates.outputs.current_harbor_version, steps.check-updates.outputs.latest_harbor_version) || '' }}
+            ${{ steps.check-updates.outputs.nginx_update_needed == 'true' && format('- Update Nginx chart from v{0} to v{1}', steps.check-updates.outputs.current_nginx_version, steps.check-updates.outputs.latest_nginx_version) || '' }}
+            ${{ steps.check-updates.outputs.certmanager_update_needed == 'true' && format('- Update Cert-Manager chart from {0} to {1}', steps.check-updates.outputs.current_certmanager_version, steps.check-updates.outputs.latest_certmanager_version) || '' }}
+            ${{ steps.check-updates.outputs.sdk_update_needed == 'true' && format('- Update SDK from v{0} to v{1}', steps.check-updates.outputs.current_sdk_version, steps.check-updates.outputs.latest_sdk_version) || '' }}
+
+            - Applied customizations via overlay files
+            - Updated manifest version references
+            - Preserved custom configurations
+          title: ${{ steps.pr-details.outputs.pr_title }}
+          body: |
+            ## 🚀 Automated Chart Updates
+
+            This PR automatically updates Helm charts and dependencies to their latest versions.
+
+            ### 📋 Summary
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
+            ### 🔧 Customizations Applied
+            All customizations are preserved through overlay files:
+            - **Harbor**: Image repositories, Replicated SDK dependency, cert-manager ClusterIssuers
+            - **Ingress-Nginx**: Global image registry override
+            - **Cert-Manager**: Image repositories for airgapped proxy registry
+
+            ### 🔍 Verification Checklist
+            - [ ] Review `Chart.yaml` changes for version and dependencies
+            - [ ] Check `values.yaml` for any breaking changes or new options
+            - [ ] Verify template compatibility with existing deployments
+            - [ ] Validate that overlay files are correctly applied
+            - [ ] Test deployment in staging environment
+            - [ ] Ensure Replicated integration still works correctly
+
+            ### 📁 Files Modified
+            - Charts: `charts/harbor/`, `charts/ingress-nginx/`, `charts/cert-manager/`
+            - Manifests: `manifests/harbor.yaml`, `manifests/ingress-nginx.yaml`, `manifests/cert-manager.yaml`
+            - Overlays: Preserved in `chart-overlays/` directory
+
+            ### 🤖 Automation Info
+            - Workflow: `update-charts.yml`
+            - Script: `scripts/update-charts.sh`
+            - Trigger: ${{ github.event_name == 'schedule' && 'Scheduled daily check' || 'Manual trigger' }}
+            - Overlay System: Ensures all customizations are maintained
+
+            ---
+
+            _This PR was created automatically by the chart update workflow. Please review and test before merging._
+          branch: ${{ steps.pr-details.outputs.branch_name }}
+          delete-branch: true
+          labels: automated-pr
+          assignees: ${{ github.actor }}
+          reviewers: ${{ github.actor }}
+
+      - name: Output results
+        run: |
+          if [[ "${{ steps.check-updates.outputs.update_available }}" == "true" ]]; then
+            if [[ "${{ steps.check-pr.outputs.pr_exists }}" == "true" ]]; then
+              echo "ℹ️ Updates available but PR #${{ steps.check-pr.outputs.existing_pr_number }} already exists"
+            else
+              echo "✅ Created PR with the following updates:"
+              if [[ "${{ steps.check-updates.outputs.harbor_update_needed }}" == "true" ]]; then
+                echo "  - Harbor chart: ${{ steps.check-updates.outputs.current_harbor_version }} → ${{ steps.check-updates.outputs.latest_harbor_version }}"
+              fi
+              if [[ "${{ steps.check-updates.outputs.nginx_update_needed }}" == "true" ]]; then
+                echo "  - Nginx chart: ${{ steps.check-updates.outputs.current_nginx_version }} → ${{ steps.check-updates.outputs.latest_nginx_version }}"
+              fi
+              if [[ "${{ steps.check-updates.outputs.certmanager_update_needed }}" == "true" ]]; then
+                echo "  - Cert-Manager chart: ${{ steps.check-updates.outputs.current_certmanager_version }} → ${{ steps.check-updates.outputs.latest_certmanager_version }}"
+              fi
+              if [[ "${{ steps.check-updates.outputs.sdk_update_needed }}" == "true" ]]; then
+                echo "  - Replicated SDK: ${{ steps.check-updates.outputs.current_sdk_version }} → ${{ steps.check-updates.outputs.latest_sdk_version }}"
+              fi
+            fi
+          else
+            echo "ℹ️ All charts and SDK are up to date"
+            echo "  - Harbor: ${{ steps.check-updates.outputs.current_harbor_version }}"
+            echo "  - Nginx: ${{ steps.check-updates.outputs.current_nginx_version }}"
+            echo "  - Cert-Manager: ${{ steps.check-updates.outputs.current_certmanager_version }}"
+            echo "  - SDK: ${{ steps.check-updates.outputs.current_sdk_version }}"
+          fi

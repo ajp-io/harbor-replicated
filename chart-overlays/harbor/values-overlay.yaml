@@ -1,0 +1,45 @@
+# Harbor Chart Values Overlay
+# This file contains all image repository customizations for the Harbor chart.
+# It replaces upstream Docker Hub images with our proxied registry.
+
+nginx:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/nginx-photon
+
+portal:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-portal
+
+core:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-core
+
+jobservice:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-jobservice
+
+registry:
+  registry:
+    image:
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/registry-photon
+  controller:
+    image:
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-registryctl
+
+trivy:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/trivy-adapter-photon
+
+database:
+  internal:
+    image:
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-db
+
+redis:
+  internal:
+    image:
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/redis-photon
+
+exporter:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-exporter
