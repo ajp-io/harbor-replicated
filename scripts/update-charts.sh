@@ -283,8 +283,6 @@ update_single_chart() {
     # Download the latest chart
     download_latest_chart "$chart_name" "$latest_version"
 
-    # Apply overlays
-    apply_values_overlay "$chart_name"
     if [[ "$chart_name" == "harbor" ]]; then
         apply_chart_overlay "$chart_name" "$sdk_version"
     fi
@@ -409,7 +407,6 @@ main() {
             local harbor_version
             harbor_version=$(get_current_chart_version "harbor")
             download_latest_chart "harbor" "$harbor_version"
-            apply_values_overlay "harbor"
             apply_chart_overlay "harbor" "$latest_sdk_version"
             apply_template_overlays "harbor"
             update_chart "harbor"
