@@ -77,6 +77,9 @@ poll_for_resources() {
     return 1
 }
 
+# Set kubectl path and kubeconfig
+KUBECTL="sudo KUBECONFIG=/var/lib/embedded-cluster/k0s/pki/admin.conf /var/lib/embedded-cluster/bin/kubectl"
+
 # Wait for components to deploy asynchronously after EC installation in correct order
 echo "Waiting for components to deploy asynchronously in dependency order..."
 
@@ -88,9 +91,6 @@ poll_for_resources "cert-manager components" 90 "\$KUBECTL get deployment cert-m
 
 # Stage 3: Harbor resources (deployed after cert-manager)
 poll_for_resources "Harbor resources" 90 "\$KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && \$KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && \$KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1"
-
-# Set kubectl path and kubeconfig
-KUBECTL="sudo KUBECONFIG=/var/lib/embedded-cluster/k0s/pki/admin.conf /var/lib/embedded-cluster/bin/kubectl"
 
 echo "Checking cluster status..."
 $KUBECTL get nodes
