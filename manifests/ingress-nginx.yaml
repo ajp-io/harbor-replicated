@@ -16,19 +16,9 @@ spec:
   values:
     imagePullSecrets:
       - name: '{{repl ImagePullSecretName }}'
-    global:
-      image:
-        registry: images.alexparker.info/proxy/harbor-enterprise/k8s
     controller:
       service:
         type: NodePort
         nodePorts:
           http: "80"
           https: "443"
-      admissionWebhooks:
-        patch:
-          image:
-            image: ingress-nginx/kube-webhook-certgen
-    defaultBackend:
-      image:
-        image: defaultbackend-amd64
