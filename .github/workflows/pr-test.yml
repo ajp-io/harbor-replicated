@@ -4,8 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - 'harbor/**'
-      - 'manifests/**'
+      - 'charts/**'           # Any changes to charts
+      - 'chart-overlays/**'   # Changes to overlay customizations
+      - 'manifests/**'        # Changes to manifests
+      - 'scripts/**'          # Changes to update scripts
       - '.github/workflows/pr-test.yml'  # Allow testing the workflow itself
 
 env:
