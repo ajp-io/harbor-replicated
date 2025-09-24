@@ -64,24 +64,52 @@ jobs:
           # Apply overlays to charts before packaging
           echo "Applying overlays to charts..."
 
-          # Function to apply overlay if it exists
+          # Function to apply dynamic and static overlays
           apply_overlay() {
             local chart_name="$1"
-            local overlay_file="chart-overlays/$chart_name/values-overlay.yaml"
 
-            if [[ -f "$overlay_file" ]]; then
-              echo "Applying overlay for $chart_name..."
-              # Create backup of original values
-              cp "charts/$chart_name/values.yaml" "charts/$chart_name/values.yaml.backup"
-              # Apply overlay using yq
-              yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
-                "charts/$chart_name/values.yaml" \
-                "$overlay_file" > "/tmp/$chart_name-values.yaml"
-              # Replace original with overlayed version
+            echo "Applying overlays for $chart_name..."
+
+            # Create backup of original values
+            cp "charts/$chart_name/values.yaml" "charts/$chart_name/values.yaml.backup"
+
+            # Generate dynamic image overlay
+            chmod +x scripts/generate-overlay.sh
+            ./scripts/generate-overlay.sh "$chart_name" > "/tmp/$chart_name-image-overlay.yaml" 2>/dev/null
+
+            # Build list of overlay files to apply
+            local overlay_files=("charts/$chart_name/values.yaml")
+
+            # Add dynamic image overlay if it has content
+            if [[ -s "/tmp/$chart_name-image-overlay.yaml" ]] && ! grep -q "No image transformations needed" "/tmp/$chart_name-image-overlay.yaml"; then
+              overlay_files+=("/tmp/$chart_name-image-overlay.yaml")
+              echo "  ✅ Generated dynamic image overlay"
+            fi
+
+            # Add static overlay if it exists and has meaningful content
+            if [[ -f "chart-overlays/$chart_name/static-overlay.yaml" ]] && ! grep -q "No static overlays" "chart-overlays/$chart_name/static-overlay.yaml"; then
+              overlay_files+=("chart-overlays/$chart_name/static-overlay.yaml")
+              echo "  ✅ Found static overlay"
+            fi
+
+            # Apply overlays if we have more than just the base file
+            if [[ ${#overlay_files[@]} -gt 1 ]]; then
+              # Use yq to merge all overlay files
+              case ${#overlay_files[@]} in
+                2)
+                  yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
+                    "${overlay_files[@]}" > "/tmp/$chart_name-values.yaml"
+                  ;;
+                3)
+                  yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1) * select(fileIndex == 2)' \
+                    "${overlay_files[@]}" > "/tmp/$chart_name-values.yaml"
+                  ;;
+              esac
+
               mv "/tmp/$chart_name-values.yaml" "charts/$chart_name/values.yaml"
-              echo "✅ Overlay applied for $chart_name"
+              echo "  ✅ Applied overlays for $chart_name"
             else
-              echo "No overlay found for $chart_name, using original values"
+              echo "  ℹ️  No overlays needed for $chart_name"
             fi
           }
 
