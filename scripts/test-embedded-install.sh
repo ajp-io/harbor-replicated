@@ -46,32 +46,48 @@ sudo ./harbor-enterprise install \
 
 echo "Installation complete! Verifying cluster and pods..."
 
-# Wait for Harbor to deploy asynchronously after EC installation
-echo "Waiting for Harbor resources to deploy asynchronously..."
-MAX_WAIT_TIME=180
-POLL_INTERVAL=5
-elapsed=0
+# Helper function for polling resources with timeout
+poll_for_resources() {
+    local stage_name="$1"
+    local timeout="$2"
+    local check_command="$3"
+    local poll_interval=5
+    local elapsed=0
 
-while [[ $elapsed -lt $MAX_WAIT_TIME ]]; do
-    echo "Checking for Harbor resources (elapsed: ${elapsed}s/${MAX_WAIT_TIME}s)..."
+    echo "Stage: ${stage_name}"
 
-    # Check if key Harbor resources exist
-    if $KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && \
-       $KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && \
-       $KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1; then
-        echo "✅ Harbor resources detected after ${elapsed}s!"
-        break
-    fi
+    while [[ $elapsed -lt $timeout ]]; do
+        echo "Checking for ${stage_name} (elapsed: ${elapsed}s/${timeout}s)..."
 
-    if [[ $elapsed -eq $MAX_WAIT_TIME ]]; then
-        echo "⚠️  Timeout reached (${MAX_WAIT_TIME}s) - proceeding anyway..."
-        break
-    fi
+        if eval "$check_command"; then
+            echo "✅ ${stage_name} detected after ${elapsed}s!"
+            return 0
+        fi
 
-    echo "Harbor resources not ready yet, checking again in ${POLL_INTERVAL}s..."
-    sleep $POLL_INTERVAL
-    elapsed=$((elapsed + POLL_INTERVAL))
-done
+        if [[ $elapsed -ge $timeout ]]; then
+            echo "⚠️  ${stage_name} timeout reached (${timeout}s) - proceeding anyway..."
+            return 1
+        fi
+
+        echo "${stage_name} not ready yet, checking again in ${poll_interval}s..."
+        sleep $poll_interval
+        elapsed=$((elapsed + poll_interval))
+    done
+
+    return 1
+}
+
+# Wait for components to deploy asynchronously after EC installation in correct order
+echo "Waiting for components to deploy asynchronously in dependency order..."
+
+# Stage 1: NGINX Ingress Controller (deployed first)
+poll_for_resources "NGINX Ingress Controller" 90 "\$KUBECTL get deployment ingress-nginx-controller -n kotsadm >/dev/null 2>&1"
+
+# Stage 2: cert-manager components (deployed after NGINX)
+poll_for_resources "cert-manager components" 90 "\$KUBECTL get deployment cert-manager -n kotsadm >/dev/null 2>&1 && \$KUBECTL get deployment cert-manager-webhook -n kotsadm >/dev/null 2>&1 && \$KUBECTL get deployment cert-manager-cainjector -n kotsadm >/dev/null 2>&1"
+
+# Stage 3: Harbor resources (deployed after cert-manager)
+poll_for_resources "Harbor resources" 90 "\$KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && \$KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && \$KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1"
 
 # Set kubectl path and kubeconfig
 KUBECTL="sudo KUBECONFIG=/var/lib/embedded-cluster/k0s/pki/admin.conf /var/lib/embedded-cluster/bin/kubectl"
