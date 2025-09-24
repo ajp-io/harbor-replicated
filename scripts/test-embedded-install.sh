@@ -47,8 +47,31 @@ sudo ./harbor-enterprise install \
 echo "Installation complete! Verifying cluster and pods..."
 
 # Wait for Harbor to deploy asynchronously after EC installation
-echo "Waiting 105 seconds for Harbor resources to deploy asynchronously..."
-sleep 105
+echo "Waiting for Harbor resources to deploy asynchronously..."
+MAX_WAIT_TIME=180
+POLL_INTERVAL=5
+elapsed=0
+
+while [[ $elapsed -lt $MAX_WAIT_TIME ]]; do
+    echo "Checking for Harbor resources (elapsed: ${elapsed}s/${MAX_WAIT_TIME}s)..."
+
+    # Check if key Harbor resources exist
+    if $KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && \
+       $KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && \
+       $KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1; then
+        echo "✅ Harbor resources detected after ${elapsed}s!"
+        break
+    fi
+
+    if [[ $elapsed -eq $MAX_WAIT_TIME ]]; then
+        echo "⚠️  Timeout reached (${MAX_WAIT_TIME}s) - proceeding anyway..."
+        break
+    fi
+
+    echo "Harbor resources not ready yet, checking again in ${POLL_INTERVAL}s..."
+    sleep $POLL_INTERVAL
+    elapsed=$((elapsed + POLL_INTERVAL))
+done
 
 # Set kubectl path and kubeconfig
 KUBECTL="sudo KUBECONFIG=/var/lib/embedded-cluster/k0s/pki/admin.conf /var/lib/embedded-cluster/bin/kubectl"
