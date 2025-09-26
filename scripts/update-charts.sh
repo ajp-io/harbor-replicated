@@ -242,9 +242,28 @@ update_single_chart() {
     # Update chart overlay with SDK version for Harbor
     if [[ "$chart_name" == "harbor" ]]; then
         update_harbor_chart_overlay "$sdk_version"
+
+        # Apply chart overlay to the downloaded chart
+        local chart_overlay_file="$OVERLAY_DIR/harbor/chart-overlay.yaml"
+        if [[ -f "$chart_overlay_file" ]]; then
+            log "Applying chart overlay to Harbor..."
+            yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
+                "$chart_temp_dir/Chart.yaml" \
+                "$chart_overlay_file" > "$chart_temp_dir/Chart.yaml.tmp"
+            mv "$chart_temp_dir/Chart.yaml.tmp" "$chart_temp_dir/Chart.yaml"
+            success "Chart overlay applied to Harbor"
+        fi
     fi
 
-    # Update the chart with pristine content (no overlays applied)
+    # Apply template overlays
+    local template_overlay_dir="$OVERLAY_DIR/$chart_name/templates"
+    if [[ -d "$template_overlay_dir" ]]; then
+        log "Applying template overlays for $chart_name..."
+        cp -r "$template_overlay_dir/"* "$chart_temp_dir/templates/"
+        success "Template overlays applied for $chart_name"
+    fi
+
+    # Update the chart with overlays applied
     update_chart "$chart_name"
 
     # Update manifest references

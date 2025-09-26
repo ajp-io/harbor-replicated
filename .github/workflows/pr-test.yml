@@ -79,14 +79,6 @@ jobs:
               echo "  ✅ Applied values overlay for $chart_name"
             fi
 
-            # Apply chart overlay for Harbor SDK dependency
-            if [[ -f "chart-overlays/$chart_name/chart-overlay.yaml" ]]; then
-              yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
-                "charts/$chart_name/Chart.yaml" \
-                "chart-overlays/$chart_name/chart-overlay.yaml" > "/tmp/$chart_name-Chart.yaml"
-              mv "/tmp/$chart_name-Chart.yaml" "charts/$chart_name/Chart.yaml"
-              echo "  ✅ Applied chart overlay for $chart_name"
-            fi
 
             # Copy custom templates if they exist (Harbor cert-manager issuers)
             if [[ -d "chart-overlays/$chart_name/templates" ]]; then
@@ -95,7 +87,7 @@ jobs:
             fi
 
             # If no overlays were found
-            if [[ ! -f "chart-overlays/$chart_name/values-overlay.yaml" && ! -f "chart-overlays/$chart_name/chart-overlay.yaml" && ! -d "chart-overlays/$chart_name/templates" ]]; then
+            if [[ ! -f "chart-overlays/$chart_name/values-overlay.yaml" && ! -d "chart-overlays/$chart_name/templates" ]]; then
               echo "  ℹ️  No overlays found for $chart_name"
             fi
           }
