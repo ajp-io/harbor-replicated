@@ -5,4 +5,4 @@
 dependencies:
   - name: replicated
     repository: oci://registry.replicated.com/library
-    version: "REPLICATED_SDK_VERSION"
+    version: "1.8.0"
