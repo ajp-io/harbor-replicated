@@ -29,6 +29,10 @@ kubectl get pods
 - Accessing production clusters/VMs requires production environment variables
 - Environment variables don't persist across separate tool calls
 
+## Replicated SDK Configuration
+
+**Important**: `global.replicated.*` values (like `global.replicated.customerEmail`) are automatically injected by KOTS at runtime. These values will NOT be present in the static values.yaml files but are available when the application is deployed through KOTS. Do not treat missing `global.replicated` values as configuration errors.
+
 ## Testing Commands
 
 - **Lint**: (determine from codebase - check package.json or README)

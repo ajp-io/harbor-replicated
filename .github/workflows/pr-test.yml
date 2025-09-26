@@ -64,24 +64,25 @@ jobs:
           # Apply overlays to charts before packaging
           echo "Applying overlays to charts..."
 
-          # Function to apply overlay if it exists
+          # Function to apply committed overlay files
           apply_overlay() {
             local chart_name="$1"
-            local overlay_file="chart-overlays/$chart_name/values-overlay.yaml"
 
-            if [[ -f "$overlay_file" ]]; then
-              echo "Applying overlay for $chart_name..."
-              # Create backup of original values
-              cp "charts/$chart_name/values.yaml" "charts/$chart_name/values.yaml.backup"
-              # Apply overlay using yq
+            echo "Applying overlays for $chart_name..."
+
+            # Apply values overlay if it exists (generated image transformations)
+            if [[ -f "chart-overlays/$chart_name/values-overlay.yaml" ]]; then
               yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
                 "charts/$chart_name/values.yaml" \
-                "$overlay_file" > "/tmp/$chart_name-values.yaml"
-              # Replace original with overlayed version
+                "chart-overlays/$chart_name/values-overlay.yaml" > "/tmp/$chart_name-values.yaml"
               mv "/tmp/$chart_name-values.yaml" "charts/$chart_name/values.yaml"
-              echo "✅ Overlay applied for $chart_name"
-            else
-              echo "No overlay found for $chart_name, using original values"
+              echo "  ✅ Applied values overlay for $chart_name"
+            fi
+
+
+            # If no overlays were found
+            if [[ ! -f "chart-overlays/$chart_name/values-overlay.yaml" ]]; then
+              echo "  ℹ️  No overlays found for $chart_name"
             fi
           }
 
@@ -102,15 +103,6 @@ jobs:
 
           echo "Packaged charts:"
           ls -la manifests/*.tgz
-
-          # Restore original values files from backup
-          echo "Restoring original chart values..."
-          for chart in harbor ingress-nginx cert-manager; do
-            if [[ -f "charts/$chart/values.yaml.backup" ]]; then
-              mv "charts/$chart/values.yaml.backup" "charts/$chart/values.yaml"
-              echo "✅ Restored original values for $chart"
-            fi
-          done
 
           # Clean up downloaded dependencies
           rm -rf charts/harbor/charts/
