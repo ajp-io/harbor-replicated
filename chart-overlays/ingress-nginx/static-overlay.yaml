@@ -1,4 +1,0 @@
-# Ingress-Nginx Static Overlay
-# Non-image customizations for ingress-nginx chart
-
-# No static overlays needed - ingress-nginx uses global registry override which is handled dynamically

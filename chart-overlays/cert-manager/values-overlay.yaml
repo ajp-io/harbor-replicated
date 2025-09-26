@@ -1,0 +1,27 @@
+# Generated image overlay for cert-manager chart
+# Source: cert-manager vv1.13.3
+# Generated: 2025-09-26 11:47:31
+#
+# Image transformations applied:
+# - quay.io/jetstack/cert-manager-controller → images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-controller
+# - quay.io/jetstack/cert-manager-webhook → images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-webhook
+# - quay.io/jetstack/cert-manager-cainjector → images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-cainjector
+# - quay.io/jetstack/cert-manager-acmesolver → images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-acmesolver
+# - quay.io/jetstack/cert-manager-ctl → images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-ctl
+#
+
+image:
+  repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-controller
+webhook:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-webhook
+cainjector:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-cainjector
+acmesolver:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-acmesolver
+startupapicheck:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-ctl
+

@@ -1,7 +1,0 @@
-# Ingress-Nginx Chart Values Overlay
-# This file sets the global registry for all ingress-nginx images.
-# The chart automatically combines this with individual image names.
-
-global:
-  image:
-    registry: images.alexparker.info/proxy/harbor-enterprise/k8s

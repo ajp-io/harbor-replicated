@@ -1,4 +1,0 @@
-# Harbor Static Overlay
-# Non-image customizations for Harbor chart
-
-# No static overlays currently needed - all customizations are handled by templates

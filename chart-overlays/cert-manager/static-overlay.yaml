@@ -1,4 +1,0 @@
-# Cert-Manager Static Overlay
-# Non-image customizations for cert-manager chart
-
-# No static overlays needed - all customizations are image-related and handled dynamically
