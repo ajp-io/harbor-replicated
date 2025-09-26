@@ -1,8 +1,52 @@
 # Generated image overlay for harbor chart
-# Source: harbor v1.17.2
-# Generated: 2025-09-26 11:48:38
+# Source: harbor v1.18.0
+# Generated: 2025-09-26 16:02:44
 #
 # Image transformations applied:
-# No image transformations needed
+# - goharbor/nginx-photon → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/nginx-photon
+# - goharbor/harbor-portal → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-portal
+# - goharbor/harbor-core → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-core
+# - goharbor/harbor-jobservice → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-jobservice
+# - goharbor/registry-photon → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/registry-photon
+# - goharbor/harbor-registryctl → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-registryctl
+# - goharbor/trivy-adapter-photon → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/trivy-adapter-photon
+# - goharbor/harbor-db → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-db
+# - goharbor/redis-photon → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/redis-photon
+# - goharbor/harbor-exporter → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-exporter
 #
+
+nginx:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/nginx-photon
+portal:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-portal
+core:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-core
+jobservice:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-jobservice
+registry:
+  registry:
+    image:
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/registry-photon
+registry:
+  controller:
+    image:
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-registryctl
+trivy:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/trivy-adapter-photon
+database:
+  internal:
+    image:
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-db
+redis:
+  internal:
+    image:
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/redis-photon
+exporter:
+  image:
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-exporter
 
