@@ -80,14 +80,8 @@ jobs:
             fi
 
 
-            # Copy custom templates if they exist (Harbor cert-manager issuers)
-            if [[ -d "chart-overlays/$chart_name/templates" ]]; then
-              cp -r "chart-overlays/$chart_name/templates/"* "charts/$chart_name/templates/"
-              echo "  ✅ Applied template overlays for $chart_name"
-            fi
-
             # If no overlays were found
-            if [[ ! -f "chart-overlays/$chart_name/values-overlay.yaml" && ! -d "chart-overlays/$chart_name/templates" ]]; then
+            if [[ ! -f "chart-overlays/$chart_name/values-overlay.yaml" ]]; then
               echo "  ℹ️  No overlays found for $chart_name"
             fi
           }
