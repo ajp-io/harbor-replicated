@@ -8,7 +8,14 @@ on:
       - 'chart-overlays/**'   # Changes to overlay customizations
       - 'manifests/**'        # Changes to manifests
       - 'scripts/**'          # Changes to update scripts
+      - 'test/**'             # Test configuration files
       - '.github/workflows/pr-test.yml'  # Allow testing the workflow itself
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or ref to test'
+        required: false
+        type: string
 
 env:
   REPLICATED_APP: harbor-enterprise

@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.CHART_UPDATE_PAT }}
 
       - name: Setup Helm
         uses: azure/setup-helm@v4
@@ -256,7 +258,7 @@ jobs:
         id: create-pr
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.CHART_UPDATE_PAT }}
           commit-message: |
             ${{ steps.pr-details.outputs.pr_title }}
 
