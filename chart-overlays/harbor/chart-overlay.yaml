@@ -1,6 +1,6 @@
 # Harbor Chart.yaml Overlay
 # This file adds the Replicated SDK dependency to the Harbor chart.
-# The REPLICATED_SDK_VERSION placeholder is replaced by the update script.
+# The 1.8.0 placeholder is replaced by the update script.
 
 dependencies:
   - name: replicated
