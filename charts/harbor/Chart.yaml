@@ -1,28 +1,30 @@
+# Harbor Chart.yaml Overlay
+# This file adds the Replicated SDK dependency to the Harbor chart.
+# The 1.8.0 placeholder is replaced by the update script.
 apiVersion: v1
-appVersion: 2.13.2
-description: An open source trusted cloud native registry that stores, signs, and
-  scans content
+appVersion: 2.14.0
+description: An open source trusted cloud native registry that stores, signs, and scans content
 home: https://goharbor.io
 icon: https://raw.githubusercontent.com/goharbor/website/main/static/img/logos/harbor-icon-color.png
 keywords:
-- docker
-- registry
-- harbor
+  - docker
+  - registry
+  - harbor
 maintainers:
-- email: yan-yw.wang@broadcom.com
-  name: Yan Wang
-- email: wenkai.yin@broadcom.com
-  name: Wenkai Yin
-- email: miner.yang@broadcom.com
-  name: Miner Yang
-- email: shengwen.yu@broadcom.com
-  name: Shengwen Yu
+  - email: yan-yw.wang@broadcom.com
+    name: Yan Wang
+  - email: wenkai.yin@broadcom.com
+    name: Wenkai Yin
+  - email: miner.yang@broadcom.com
+    name: Miner Yang
+  - email: shengwen.yu@broadcom.com
+    name: Shengwen Yu
 name: harbor
 sources:
-- https://github.com/goharbor/harbor
-- https://github.com/goharbor/harbor-helm
-version: 1.17.2
+  - https://github.com/goharbor/harbor
+  - https://github.com/goharbor/harbor-helm
+version: 1.18.0
 dependencies:
-- name: replicated
-  repository: oci://registry.replicated.com/library
-  version: 1.8.0
+  - name: replicated
+    repository: oci://registry.replicated.com/library
+    version: "1.8.0"

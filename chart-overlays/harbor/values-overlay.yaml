@@ -1,6 +1,6 @@
 # Generated image overlay for harbor chart
-# Source: harbor v1.17.2
-# Generated: 2025-09-26 12:39:06
+# Source: harbor v1.18.0
+# Generated: 2025-09-29 16:49:30
 #
 # Image transformations applied:
 # - goharbor/nginx-photon → images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/nginx-photon
