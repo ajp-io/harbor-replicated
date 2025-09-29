@@ -157,70 +157,6 @@ download_latest_chart() {
     success "$chart_name chart downloaded to $chart_temp_dir/$helm_chart_name"
 }
 
-# Apply overlay to values.yaml
-apply_values_overlay() {
-    local chart_name="$1"
-    local chart_temp_dir="$TEMP_DIR/$chart_name/${CHART_NAMES[$chart_name]}"
-    local overlay_file="$OVERLAY_DIR/$chart_name/values-overlay.yaml"
-
-    if [[ ! -f "$overlay_file" ]]; then
-        log "No values overlay found for $chart_name, skipping"
-        return
-    fi
-
-    log "Applying values overlay for $chart_name..."
-
-    # Merge overlay with existing values.yaml
-    yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
-        "$chart_temp_dir/values.yaml" \
-        "$overlay_file" > "$chart_temp_dir/values.yaml.tmp"
-
-    mv "$chart_temp_dir/values.yaml.tmp" "$chart_temp_dir/values.yaml"
-
-    success "Values overlay applied for $chart_name"
-}
-
-# Apply overlay to Chart.yaml (for Harbor SDK dependency)
-apply_chart_overlay() {
-    local chart_name="$1"
-    local chart_temp_dir="$TEMP_DIR/$chart_name/${CHART_NAMES[$chart_name]}"
-    local overlay_file="$OVERLAY_DIR/$chart_name/chart-overlay.yaml"
-    local sdk_version="$2"
-
-    if [[ ! -f "$overlay_file" ]]; then
-        log "No chart overlay found for $chart_name, skipping"
-        return
-    fi
-
-    log "Applying chart overlay for $chart_name with SDK version $sdk_version..."
-
-    # Replace SDK version placeholder and merge with Chart.yaml
-    sed "s/REPLICATED_SDK_VERSION/$sdk_version/g" "$overlay_file" | \
-        yq eval-all '. as $overlay | load("'$chart_temp_dir'/Chart.yaml") | . * $overlay' > "$chart_temp_dir/Chart.yaml.tmp"
-
-    mv "$chart_temp_dir/Chart.yaml.tmp" "$chart_temp_dir/Chart.yaml"
-
-    success "Chart overlay applied for $chart_name"
-}
-
-# Copy custom templates (for Harbor cert-manager issuers)
-apply_template_overlays() {
-    local chart_name="$1"
-    local chart_temp_dir="$TEMP_DIR/$chart_name/${CHART_NAMES[$chart_name]}"
-    local template_overlay_dir="$OVERLAY_DIR/$chart_name/templates"
-
-    if [[ ! -d "$template_overlay_dir" ]]; then
-        log "No template overlays found for $chart_name, skipping"
-        return
-    fi
-
-    log "Applying template overlays for $chart_name..."
-
-    # Copy all template overlay files
-    cp -r "$template_overlay_dir/"* "$chart_temp_dir/templates/"
-
-    success "Template overlays applied for $chart_name"
-}
 
 # Update the chart in the repository
 update_chart() {
@@ -240,6 +176,21 @@ update_chart() {
     cp -r "$chart_temp_dir/"* "$chart_dest_dir/"
 
     success "$chart_name chart files updated"
+}
+
+# Update Harbor chart overlay with actual SDK version
+update_harbor_chart_overlay() {
+    local sdk_version="$1"
+    local chart_overlay_file="$OVERLAY_DIR/harbor/chart-overlay.yaml"
+
+    if [[ -f "$chart_overlay_file" ]]; then
+        log "Updating Harbor chart overlay with SDK version $sdk_version..."
+        sed -i.bak "s/REPLICATED_SDK_VERSION/$sdk_version/g" "$chart_overlay_file"
+        rm -f "$chart_overlay_file.bak"
+        success "Harbor chart overlay updated with SDK version $sdk_version"
+    else
+        warn "Harbor chart overlay file not found at $chart_overlay_file"
+    fi
 }
 
 # Update manifest version references
@@ -283,12 +234,36 @@ update_single_chart() {
     # Download the latest chart
     download_latest_chart "$chart_name" "$latest_version"
 
-    if [[ "$chart_name" == "harbor" ]]; then
-        apply_chart_overlay "$chart_name" "$sdk_version"
-    fi
-    apply_template_overlays "$chart_name"
+    # Generate image overlay from the downloaded chart
+    local chart_temp_dir="$TEMP_DIR/$chart_name/${CHART_NAMES[$chart_name]}"
+    log "Generating image overlay for $chart_name..."
+    "$SCRIPT_DIR/generate-overlay.sh" "$chart_name" "$chart_temp_dir"
 
-    # Update the chart
+    # Update chart overlay with SDK version for Harbor
+    if [[ "$chart_name" == "harbor" ]]; then
+        update_harbor_chart_overlay "$sdk_version"
+
+        # Apply chart overlay to the downloaded chart
+        local chart_overlay_file="$OVERLAY_DIR/harbor/chart-overlay.yaml"
+        if [[ -f "$chart_overlay_file" ]]; then
+            log "Applying chart overlay to Harbor..."
+            yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
+                "$chart_temp_dir/Chart.yaml" \
+                "$chart_overlay_file" > "$chart_temp_dir/Chart.yaml.tmp"
+            mv "$chart_temp_dir/Chart.yaml.tmp" "$chart_temp_dir/Chart.yaml"
+            success "Chart overlay applied to Harbor"
+        fi
+    fi
+
+    # Apply template overlays
+    local template_overlay_dir="$OVERLAY_DIR/$chart_name/templates"
+    if [[ -d "$template_overlay_dir" ]]; then
+        log "Applying template overlays for $chart_name..."
+        cp -r "$template_overlay_dir/"* "$chart_temp_dir/templates/"
+        success "Template overlays applied for $chart_name"
+    fi
+
+    # Update the chart with overlays applied
     update_chart "$chart_name"
 
     # Update manifest references
@@ -403,13 +378,8 @@ main() {
 
         if [[ "$harbor_in_updated" == false ]]; then
             log "Updating Harbor for SDK version change..."
-            # Re-apply Harbor overlays with new SDK version
-            local harbor_version
-            harbor_version=$(get_current_chart_version "harbor")
-            download_latest_chart "harbor" "$harbor_version"
-            apply_chart_overlay "harbor" "$latest_sdk_version"
-            apply_template_overlays "harbor"
-            update_chart "harbor"
+            # Update Harbor chart overlay with new SDK version
+            update_harbor_chart_overlay "$latest_sdk_version"
             updated_charts+=("harbor (SDK update)")
         fi
     fi
