@@ -311,7 +311,6 @@ jobs:
           delete-branch: true
           labels: automated-pr
           assignees: ${{ github.actor }}
-          reviewers: ${{ github.actor }}
 
       - name: Output results
         run: |
