@@ -185,7 +185,7 @@ update_harbor_chart_overlay() {
 
     if [[ -f "$chart_overlay_file" ]]; then
         log "Updating Harbor chart overlay with SDK version $sdk_version..."
-        sed -i.bak "s/REPLICATED_SDK_VERSION/$sdk_version/g" "$chart_overlay_file"
+        sed -i.bak "s/version: \"REPLICATED_SDK_VERSION\"/version: \"$sdk_version\"/g" "$chart_overlay_file"
         rm -f "$chart_overlay_file.bak"
         success "Harbor chart overlay updated with SDK version $sdk_version"
     else
