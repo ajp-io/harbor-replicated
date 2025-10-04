@@ -28,10 +28,40 @@ echo "Downloading Embedded Cluster air gap bundle for version: ${TEST_VERSION}"
 CHANNEL="${CHANNEL:-unstable}"
 echo "Using channel: ${CHANNEL}"
 
-# Download air gap bundle (includes installer, license, and air gap bundle)
-curl -f "https://updates.alexparker.info/embedded/harbor-enterprise/${CHANNEL}/${TEST_VERSION}?airgap=true" \
-  -H "Authorization: ${LICENSE_ID}" \
-  -o harbor-enterprise-${CHANNEL}-airgap.tgz
+# Poll for air gap bundle to be ready (returns 400 until build completes)
+MAX_WAIT=900  # 15 minutes
+ELAPSED=0
+INTERVAL=30
+BUNDLE_URL="https://updates.alexparker.info/embedded/harbor-enterprise/${CHANNEL}/${TEST_VERSION}?airgap=true"
+BUNDLE_FILE="harbor-enterprise-${CHANNEL}-airgap.tgz"
+
+echo "Polling for air gap bundle to be ready (max wait: ${MAX_WAIT}s)..."
+
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+    echo "Attempt $((ELAPSED / INTERVAL + 1)): Downloading air gap bundle..."
+
+    # Download and capture HTTP status code
+    HTTP_CODE=$(curl -w "%{http_code}" -s -o "$BUNDLE_FILE" \
+        -H "Authorization: ${LICENSE_ID}" \
+        "$BUNDLE_URL")
+
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo "✅ Air gap bundle downloaded successfully!"
+        break
+    elif [ "$HTTP_CODE" = "400" ]; then
+        echo "⏳ Air gap bundle not ready yet (HTTP 400), waiting ${INTERVAL}s... (elapsed: ${ELAPSED}s/${MAX_WAIT}s)"
+        sleep $INTERVAL
+        ELAPSED=$((ELAPSED + INTERVAL))
+    else
+        echo "❌ Download failed with HTTP status $HTTP_CODE"
+        exit 1
+    fi
+done
+
+if [ $ELAPSED -ge $MAX_WAIT ]; then
+    echo "❌ Timeout: Air gap bundle not ready after ${MAX_WAIT}s"
+    exit 1
+fi
 
 echo "Extracting air gap installation assets..."
 tar -xzf harbor-enterprise-${CHANNEL}-airgap.tgz
