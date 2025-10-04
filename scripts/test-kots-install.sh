@@ -47,11 +47,15 @@ echo "Config values file verified"
 
 # Note: KOTS will create the namespace automatically, so we don't need to create it manually
 
+# Support custom channel (default: unstable)
+CHANNEL="${CHANNEL:-unstable}"
+echo "Using channel: ${CHANNEL}"
+
 # Install application using KOTS
-echo "Installing ${APP_NAME} with KOTS..."
+echo "Installing ${APP_NAME} with KOTS from ${CHANNEL} channel..."
 echo "This may take several minutes..."
 
-kubectl kots install ${APP_NAME}/unstable \
+kubectl kots install ${APP_NAME}/${CHANNEL} \
   --shared-password "${SHARED_PASSWORD}" \
   --license-file /tmp/license.yaml \
   --config-values /tmp/config-values.yaml \

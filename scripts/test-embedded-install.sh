@@ -24,12 +24,16 @@ sed -i "s/harbor\\.local/$ESCAPED_HOSTNAME/g" /tmp/config-values.yaml
 
 echo "Downloading Embedded Cluster installation assets for version: ${TEST_VERSION}"
 
-curl -f "https://updates.alexparker.info/embedded/harbor-enterprise/unstable/${TEST_VERSION}" \
+# Support custom channel (default: unstable)
+CHANNEL="${CHANNEL:-unstable}"
+echo "Using channel: ${CHANNEL}"
+
+curl -f "https://updates.alexparker.info/embedded/harbor-enterprise/${CHANNEL}/${TEST_VERSION}" \
   -H "Authorization: ${LICENSE_ID}" \
-  -o harbor-enterprise-unstable.tgz
+  -o harbor-enterprise-${CHANNEL}.tgz
 
 echo "Extracting installation assets..."
-tar -xzf harbor-enterprise-unstable.tgz
+tar -xzf harbor-enterprise-${CHANNEL}.tgz
 
 echo "Verifying extracted files..."
 ls -la
