@@ -270,6 +270,192 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
+  test-embedded-cluster-airgap:
+    needs: create-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Replicated CLI
+        run: |
+          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+          | grep "browser_download_url.*linux_amd64.tar.gz" \
+          | cut -d : -f 2,3 \
+          | tr -d \" \
+          | wget -O replicated.tar.gz -qi -
+          tar xf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/
+
+      - name: Create test VM and expose ingress port
+        id: vm
+        run: |
+          # Create VM for air gap testing with 10 minute wait and unique name
+          COMMIT_SHORT=$(git rev-parse --short HEAD)
+          VM_NAME="embedded-airgap-pr${{ github.event.pull_request.number }}-r${{ github.run_number }}-${COMMIT_SHORT}"
+          echo "Creating VM for air gap testing: $VM_NAME (waiting up to 10 minutes)..."
+          VM_OUTPUT=$(replicated vm create \
+            --distribution ubuntu \
+            --version 22.04 \
+            --instance-type r1.small \
+            --name "$VM_NAME" \
+            --wait 10m \
+            --output json)
+
+          echo "VM creation output:"
+          echo "$VM_OUTPUT"
+
+          # Try to extract VM ID - handle both object and array responses
+          VM_ID=$(echo "$VM_OUTPUT" | jq -r 'if type == "array" then .[0].id else .id end')
+
+          if [[ -z "$VM_ID" || "$VM_ID" == "null" ]]; then
+            echo "❌ Failed to get VM ID from output"
+            exit 1
+          fi
+
+          echo "✅ VM created and ready: $VM_ID"
+
+          # Expose port 80 for HTTP (redirects to HTTPS)
+          echo "Exposing port 80 for HTTP redirects on VM: $VM_ID"
+          EXPOSE_HTTP_OUTPUT=$(replicated vm port expose $VM_ID --port 80 --protocol http --output json)
+          echo "HTTP port expose output:"
+          echo "$EXPOSE_HTTP_OUTPUT"
+
+          # Expose port 443 for HTTPS
+          echo "Exposing port 443 for HTTPS on VM: $VM_ID"
+          EXPOSE_HTTPS_OUTPUT=$(replicated vm port expose $VM_ID --port 443 --protocol https --output json)
+          echo "HTTPS port expose output:"
+          echo "$EXPOSE_HTTPS_OUTPUT"
+
+          # Expose port 30000 for KOTS Admin Console
+          echo "Exposing port 30000 for KOTS Admin Console on VM: $VM_ID"
+          EXPOSE_ADMIN_OUTPUT=$(replicated vm port expose $VM_ID --port 30000 --protocol http --output json)
+          echo "Admin Console port expose output:"
+          echo "$EXPOSE_ADMIN_OUTPUT"
+
+          HOSTNAME=$(echo "$EXPOSE_HTTPS_OUTPUT" | jq -r '.hostname')
+          ADMIN_HOSTNAME=$(echo "$EXPOSE_ADMIN_OUTPUT" | jq -r '.hostname')
+
+          if [[ -z "$HOSTNAME" || "$HOSTNAME" == "null" ]]; then
+            echo "❌ Failed to get hostname from HTTPS port expose output"
+            exit 1
+          fi
+
+          if [[ -z "$ADMIN_HOSTNAME" || "$ADMIN_HOSTNAME" == "null" ]]; then
+            echo "❌ Failed to get admin hostname from port 30000 expose output"
+            exit 1
+          fi
+
+          echo "✅ Ports 80 (HTTP), 443 (HTTPS), and 30000 (Admin Console) exposed"
+          echo "✅ Harbor will be accessible at: https://$HOSTNAME"
+          echo "✅ KOTS Admin Console will be accessible at: http://$ADMIN_HOSTNAME:30000"
+
+          echo "vm_id=$VM_ID" >> $GITHUB_OUTPUT
+          echo "hostname=$HOSTNAME" >> $GITHUB_OUTPUT
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ env.REPLICATED_APP }}
+
+      - name: Setup SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts and transfer files
+        run: |
+          # Setup SSH known hosts
+          mkdir -p ~/.ssh
+          ssh-keyscan replicatedvm.com >> ~/.ssh/known_hosts
+
+          # Get SCP endpoint for file transfers
+          SCP_ENDPOINT=$(replicated vm scp-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          echo "SCP endpoint: $SCP_ENDPOINT"
+
+          # Make scripts executable
+          chmod +x scripts/test-embedded-airgap-install.sh
+
+          # Transfer test files to VM home directory first
+          scp -O -o StrictHostKeyChecking=no test/config-values.yaml $SCP_ENDPOINT/config-values.yaml
+          scp -O -o StrictHostKeyChecking=no scripts/test-embedded-airgap-install.sh $SCP_ENDPOINT/test-airgap.sh
+
+          # Get SSH endpoint and move files to /tmp
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'sudo mv config-values.yaml /tmp/ && sudo mv test-airgap.sh /tmp/ && ls -la /tmp/'
+
+          echo "Files transferred successfully"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Configure air gap network policy
+        run: |
+          # Get VM details to find network ID
+          VM_DETAILS=$(replicated vm ls --output json)
+          echo "VM list output:"
+          echo "$VM_DETAILS"
+
+          # Extract network ID for this VM
+          NETWORK_ID=$(echo "$VM_DETAILS" | jq -r '.[] | select(.id == "${{ steps.vm.outputs.vm_id }}") | .network_id')
+
+          if [[ -z "$NETWORK_ID" || "$NETWORK_ID" == "null" ]]; then
+            echo "❌ Failed to get network ID from VM details"
+            exit 1
+          fi
+
+          echo "Network ID: $NETWORK_ID"
+
+          # Update network policy to airgap
+          echo "Setting network policy to airgap..."
+          replicated network update "$NETWORK_ID" --policy airgap
+
+          echo "✅ Network policy set to airgap"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Verify air gap isolation
+        run: |
+          # Get SSH endpoint
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          echo "SSH endpoint: $SSH_ENDPOINT"
+
+          echo "Verifying air gap isolation by testing external connectivity..."
+
+          # Test that external connections fail (use timeout to avoid hanging)
+          if ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'timeout 10 curl -s https://google.com || true' | grep -q "Could not resolve host\|Connection timed out\|Network is unreachable"; then
+            echo "✅ Air gap verified: external connections are blocked"
+          else
+            echo "⚠️  Air gap may not be properly configured - continuing anyway"
+          fi
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Run embedded cluster air gap installation test
+        id: test
+        run: |
+          # Get SSH endpoint for connection
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          echo "SSH endpoint: $SSH_ENDPOINT"
+
+          # Run the air gap test script on the VM with the test version and hostname
+          echo "Running embedded cluster air gap installation test for version: ${{ needs.create-release.outputs.test_version }}"
+          echo "Harbor will be accessible at: https://${{ steps.vm.outputs.hostname }}"
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'chmod +x /tmp/test-airgap.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" CHANNEL="unstable" /tmp/test-airgap.sh'
+
+          echo "Air gap test completed successfully!"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Cleanup VM
+        if: success()
+        run: |
+          if [[ -n "${{ steps.vm.outputs.vm_id }}" ]]; then
+            echo "✅ Air gap test passed! Cleaning up VM: ${{ steps.vm.outputs.vm_id }}"
+            replicated vm rm ${{ steps.vm.outputs.vm_id }} || true
+            echo "VM cleanup completed"
+          fi
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
 
   test-kots:
     needs: create-release
