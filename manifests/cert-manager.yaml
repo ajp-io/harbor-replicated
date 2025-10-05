@@ -18,3 +18,5 @@ spec:
     global:
       imagePullSecrets:
         - name: '{{repl ImagePullSecretName }}'
+  builder:
+    installCRDs: true # Ensure all images are discovered during air gap build

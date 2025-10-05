@@ -63,6 +63,8 @@ spec:
           internal:
             password: repl{{ ConfigOption "embedded_postgres_password" }}
   builder:
+    trivy:
+      enabled: true # Ensure Trivy images are included in air gap bundle
     global:
       replicated:
         dockerconfigjson: placeholder # don't fail air gap builds
