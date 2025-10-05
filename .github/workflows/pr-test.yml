@@ -395,46 +395,40 @@ jobs:
 
           echo "Downloading air gap bundle on VM (polling for availability)..."
 
-          # Pass variables to remote script via environment
-          TEST_VERSION="${{ needs.create-release.outputs.test_version }}"
-          LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}"
+          # Execute remote command with inline script
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT bash -c "'
+          MAX_WAIT=900
+          ELAPSED=0
+          INTERVAL=30
+          CHANNEL=\"unstable\"
+          TEST_VERSION=\"${{ needs.create-release.outputs.test_version }}\"
+          LICENSE_ID=\"${{ secrets.HARBOR_LICENSE_ID }}\"
+          BUNDLE_URL=\"https://updates.alexparker.info/embedded/harbor-enterprise/\${CHANNEL}/\${TEST_VERSION}?airgap=true\"
+          BUNDLE_FILE=\"/tmp/harbor-enterprise-airgap.tgz\"
 
-          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT "bash -s" <<EOF
-            # Poll for bundle to be ready (returns 400 until build completes)
-            MAX_WAIT=900  # 15 minutes
-            ELAPSED=0
-            INTERVAL=30
-            CHANNEL="unstable"
-            BUNDLE_URL="https://updates.alexparker.info/embedded/harbor-enterprise/\${CHANNEL}/${TEST_VERSION}?airgap=true"
-            BUNDLE_FILE="/tmp/harbor-enterprise-airgap.tgz"
+          echo \"Polling for air gap bundle to be ready (max wait: \${MAX_WAIT}s)...\"
 
-            echo "Polling for air gap bundle to be ready (max wait: \${MAX_WAIT}s)..."
+          while [ \$ELAPSED -lt \$MAX_WAIT ]; do
+              echo \"Attempt \$((ELAPSED / INTERVAL + 1)): Downloading air gap bundle...\"
+              HTTP_CODE=\$(curl -w \"%{http_code}\" -s -o \"\$BUNDLE_FILE\" -H \"Authorization: \${LICENSE_ID}\" \"\$BUNDLE_URL\")
 
-            while [ \$ELAPSED -lt \$MAX_WAIT ]; do
-                echo "Attempt \$((ELAPSED / INTERVAL + 1)): Downloading air gap bundle..."
+              if [ \"\$HTTP_CODE\" = \"200\" ]; then
+                  echo \"Air gap bundle downloaded successfully!\"
+                  ls -lh \"\$BUNDLE_FILE\"
+                  exit 0
+              elif [ \"\$HTTP_CODE\" = \"400\" ]; then
+                  echo \"Air gap bundle not ready yet (HTTP 400), waiting \${INTERVAL}s... (elapsed: \${ELAPSED}s/\${MAX_WAIT}s)\"
+                  sleep \$INTERVAL
+                  ELAPSED=\$((ELAPSED + INTERVAL))
+              else
+                  echo \"Download failed with HTTP status \$HTTP_CODE\"
+                  exit 1
+              fi
+          done
 
-                # Download and capture HTTP status code
-                HTTP_CODE=\$(curl -w "%{http_code}" -s -o "\$BUNDLE_FILE" \\
-                    -H "Authorization: ${LICENSE_ID}" \\
-                    "\$BUNDLE_URL")
-
-                if [ "\$HTTP_CODE" = "200" ]; then
-                    echo "✅ Air gap bundle downloaded successfully!"
-                    ls -lh "\$BUNDLE_FILE"
-                    exit 0
-                elif [ "\$HTTP_CODE" = "400" ]; then
-                    echo "⏳ Air gap bundle not ready yet (HTTP 400), waiting \${INTERVAL}s... (elapsed: \${ELAPSED}s/\${MAX_WAIT}s)"
-                    sleep \$INTERVAL
-                    ELAPSED=\$((ELAPSED + INTERVAL))
-                else
-                    echo "❌ Download failed with HTTP status \$HTTP_CODE"
-                    exit 1
-                fi
-            done
-
-            echo "❌ Timeout: Air gap bundle not ready after \${MAX_WAIT}s"
-            exit 1
-EOF
+          echo \"Timeout: Air gap bundle not ready after \${MAX_WAIT}s\"
+          exit 1
+          '"
 
           echo "Air gap bundle downloaded to VM successfully"
         env:
