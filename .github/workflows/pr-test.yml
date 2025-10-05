@@ -362,46 +362,6 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
 
-      - name: Download air gap bundle
-        run: |
-          # Download air gap bundle before air-gapping the VM
-          # Poll for bundle to be ready (returns 400 until build completes)
-          MAX_WAIT=900  # 15 minutes
-          ELAPSED=0
-          INTERVAL=30
-          CHANNEL="unstable"
-          BUNDLE_URL="https://updates.alexparker.info/embedded/harbor-enterprise/${CHANNEL}/${{ needs.create-release.outputs.test_version }}?airgap=true"
-          BUNDLE_FILE="harbor-enterprise-airgap.tgz"
-
-          echo "Polling for air gap bundle to be ready (max wait: ${MAX_WAIT}s)..."
-
-          while [ $ELAPSED -lt $MAX_WAIT ]; do
-              echo "Attempt $((ELAPSED / INTERVAL + 1)): Downloading air gap bundle..."
-
-              # Download and capture HTTP status code
-              HTTP_CODE=$(curl -w "%{http_code}" -s -o "$BUNDLE_FILE" \
-                  -H "Authorization: ${{ secrets.HARBOR_LICENSE_ID }}" \
-                  "$BUNDLE_URL")
-
-              if [ "$HTTP_CODE" = "200" ]; then
-                  echo "✅ Air gap bundle downloaded successfully!"
-                  ls -lh "$BUNDLE_FILE"
-                  break
-              elif [ "$HTTP_CODE" = "400" ]; then
-                  echo "⏳ Air gap bundle not ready yet (HTTP 400), waiting ${INTERVAL}s... (elapsed: ${ELAPSED}s/${MAX_WAIT}s)"
-                  sleep $INTERVAL
-                  ELAPSED=$((ELAPSED + INTERVAL))
-              else
-                  echo "❌ Download failed with HTTP status $HTTP_CODE"
-                  exit 1
-              fi
-          done
-
-          if [ $ELAPSED -ge $MAX_WAIT ]; then
-              echo "❌ Timeout: Air gap bundle not ready after ${MAX_WAIT}s"
-              exit 1
-          fi
-
       - name: Setup SSH known hosts and transfer files
         run: |
           # Setup SSH known hosts
@@ -415,21 +375,63 @@ jobs:
           # Make scripts executable
           chmod +x scripts/test-embedded-airgap-install.sh
 
-          # Transfer test files and air gap bundle to VM home directory first
-          echo "Transferring config values..."
+          # Transfer test files to VM home directory first
           scp -O -o StrictHostKeyChecking=no test/config-values.yaml $SCP_ENDPOINT/config-values.yaml
-
-          echo "Transferring test script..."
           scp -O -o StrictHostKeyChecking=no scripts/test-embedded-airgap-install.sh $SCP_ENDPOINT/test-airgap.sh
-
-          echo "Transferring air gap bundle (this may take a few minutes)..."
-          scp -O -o StrictHostKeyChecking=no harbor-enterprise-airgap.tgz $SCP_ENDPOINT/harbor-enterprise-airgap.tgz
 
           # Get SSH endpoint and move files to /tmp
           SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
-          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'sudo mv config-values.yaml /tmp/ && sudo mv test-airgap.sh /tmp/ && sudo mv harbor-enterprise-airgap.tgz /tmp/ && ls -lh /tmp/'
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'sudo mv config-values.yaml /tmp/ && sudo mv test-airgap.sh /tmp/ && ls -la /tmp/'
 
           echo "Files transferred successfully"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Download air gap bundle on VM
+        run: |
+          # Download air gap bundle directly on VM before air-gapping
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          echo "SSH endpoint: $SSH_ENDPOINT"
+
+          echo "Downloading air gap bundle on VM (polling for availability)..."
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'bash -s' <<'DOWNLOAD_SCRIPT'
+            # Poll for bundle to be ready (returns 400 until build completes)
+            MAX_WAIT=900  # 15 minutes
+            ELAPSED=0
+            INTERVAL=30
+            CHANNEL="unstable"
+            BUNDLE_URL="https://updates.alexparker.info/embedded/harbor-enterprise/${CHANNEL}/${{ needs.create-release.outputs.test_version }}?airgap=true"
+            BUNDLE_FILE="/tmp/harbor-enterprise-airgap.tgz"
+
+            echo "Polling for air gap bundle to be ready (max wait: ${MAX_WAIT}s)..."
+
+            while [ $ELAPSED -lt $MAX_WAIT ]; do
+                echo "Attempt $((ELAPSED / INTERVAL + 1)): Downloading air gap bundle..."
+
+                # Download and capture HTTP status code
+                HTTP_CODE=$(curl -w "%{http_code}" -s -o "$BUNDLE_FILE" \
+                    -H "Authorization: ${{ secrets.HARBOR_LICENSE_ID }}" \
+                    "$BUNDLE_URL")
+
+                if [ "$HTTP_CODE" = "200" ]; then
+                    echo "✅ Air gap bundle downloaded successfully!"
+                    ls -lh "$BUNDLE_FILE"
+                    exit 0
+                elif [ "$HTTP_CODE" = "400" ]; then
+                    echo "⏳ Air gap bundle not ready yet (HTTP 400), waiting ${INTERVAL}s... (elapsed: ${ELAPSED}s/${MAX_WAIT}s)"
+                    sleep $INTERVAL
+                    ELAPSED=$((ELAPSED + INTERVAL))
+                else
+                    echo "❌ Download failed with HTTP status $HTTP_CODE"
+                    exit 1
+                fi
+            done
+
+            echo "❌ Timeout: Air gap bundle not ready after ${MAX_WAIT}s"
+            exit 1
+DOWNLOAD_SCRIPT
+
+          echo "Air gap bundle downloaded to VM successfully"
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
