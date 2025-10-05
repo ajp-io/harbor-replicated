@@ -18,5 +18,29 @@ spec:
     global:
       imagePullSecrets:
         - name: '{{repl ImagePullSecretName }}'
+  optionalValues:
+    # Air gap - Use local registry
+    - when: 'repl{{ HasLocalRegistry }}'
+      recursiveMerge: true
+      values:
+        image:
+          registry: '{{repl LocalRegistryHost }}'
+          repository: '{{repl LocalRegistryNamespace }}/quay.io/jetstack/cert-manager-controller'
+        webhook:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/quay.io/jetstack/cert-manager-webhook'
+        cainjector:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/quay.io/jetstack/cert-manager-cainjector'
+        acmesolver:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/quay.io/jetstack/cert-manager-acmesolver'
+        startupapicheck:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/quay.io/jetstack/cert-manager-startupapicheck'
   builder:
     installCRDs: true # Ensure all images are discovered during air gap build

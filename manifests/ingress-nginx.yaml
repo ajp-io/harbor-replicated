@@ -22,3 +22,17 @@ spec:
         nodePorts:
           http: "80"
           https: "443"
+  optionalValues:
+    # Air gap - Use local registry
+    - when: 'repl{{ HasLocalRegistry }}'
+      recursiveMerge: true
+      values:
+        controller:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            image: '{{repl LocalRegistryNamespace }}/registry.k8s.io/ingress-nginx/controller'
+          admissionWebhooks:
+            patch:
+              image:
+                registry: '{{repl LocalRegistryHost }}'
+                image: '{{repl LocalRegistryNamespace }}/registry.k8s.io/ingress-nginx/kube-webhook-certgen'

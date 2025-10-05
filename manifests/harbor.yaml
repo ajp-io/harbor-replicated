@@ -62,6 +62,45 @@ spec:
           type: internal
           internal:
             password: repl{{ ConfigOption "embedded_postgres_password" }}
+    # Air gap - Use local registry
+    - when: 'repl{{ HasLocalRegistry }}'
+      recursiveMerge: true
+      values:
+        core:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/goharbor/harbor-core'
+        jobservice:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/goharbor/harbor-jobservice'
+        registry:
+          registry:
+            image:
+              registry: '{{repl LocalRegistryHost }}'
+              repository: '{{repl LocalRegistryNamespace }}/goharbor/registry-photon'
+          controller:
+            image:
+              registry: '{{repl LocalRegistryHost }}'
+              repository: '{{repl LocalRegistryNamespace }}/goharbor/harbor-registryctl'
+        portal:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/goharbor/harbor-portal'
+        database:
+          internal:
+            image:
+              registry: '{{repl LocalRegistryHost }}'
+              repository: '{{repl LocalRegistryNamespace }}/goharbor/harbor-db'
+        redis:
+          internal:
+            image:
+              registry: '{{repl LocalRegistryHost }}'
+              repository: '{{repl LocalRegistryNamespace }}/goharbor/redis-photon'
+        trivy:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/goharbor/trivy-adapter-photon'
   builder:
     global:
       replicated:
