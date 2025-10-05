@@ -22,49 +22,22 @@ echo "Updating config values with ingress hostname..."
 ESCAPED_HOSTNAME=$(printf '%s\n' "$HOSTNAME" | sed 's/[[\.*^$()+?{|]/\\&/g')
 sed -i "s/harbor\\.local/$ESCAPED_HOSTNAME/g" /tmp/config-values.yaml
 
-echo "Downloading Embedded Cluster air gap bundle for version: ${TEST_VERSION}"
+echo "Using pre-downloaded air gap bundle for version: ${TEST_VERSION}"
 
-# Support custom channel (default: unstable)
-CHANNEL="${CHANNEL:-unstable}"
-echo "Using channel: ${CHANNEL}"
+# Verify the air gap bundle exists (should have been transferred before air-gapping the VM)
+BUNDLE_FILE="/tmp/harbor-enterprise-airgap.tgz"
 
-# Poll for air gap bundle to be ready (returns 400 until build completes)
-MAX_WAIT=900  # 15 minutes
-ELAPSED=0
-INTERVAL=30
-BUNDLE_URL="https://updates.alexparker.info/embedded/harbor-enterprise/${CHANNEL}/${TEST_VERSION}?airgap=true"
-BUNDLE_FILE="harbor-enterprise-${CHANNEL}-airgap.tgz"
-
-echo "Polling for air gap bundle to be ready (max wait: ${MAX_WAIT}s)..."
-
-while [ $ELAPSED -lt $MAX_WAIT ]; do
-    echo "Attempt $((ELAPSED / INTERVAL + 1)): Downloading air gap bundle..."
-
-    # Download and capture HTTP status code
-    HTTP_CODE=$(curl -w "%{http_code}" -s -o "$BUNDLE_FILE" \
-        -H "Authorization: ${LICENSE_ID}" \
-        "$BUNDLE_URL")
-
-    if [ "$HTTP_CODE" = "200" ]; then
-        echo "✅ Air gap bundle downloaded successfully!"
-        break
-    elif [ "$HTTP_CODE" = "400" ]; then
-        echo "⏳ Air gap bundle not ready yet (HTTP 400), waiting ${INTERVAL}s... (elapsed: ${ELAPSED}s/${MAX_WAIT}s)"
-        sleep $INTERVAL
-        ELAPSED=$((ELAPSED + INTERVAL))
-    else
-        echo "❌ Download failed with HTTP status $HTTP_CODE"
-        exit 1
-    fi
-done
-
-if [ $ELAPSED -ge $MAX_WAIT ]; then
-    echo "❌ Timeout: Air gap bundle not ready after ${MAX_WAIT}s"
+if [[ ! -f "$BUNDLE_FILE" ]]; then
+    echo "❌ Air gap bundle not found at $BUNDLE_FILE"
+    echo "Bundle must be downloaded and transferred before air-gapping the VM"
     exit 1
 fi
 
+echo "✅ Air gap bundle found"
+ls -lh "$BUNDLE_FILE"
+
 echo "Extracting air gap installation assets..."
-tar -xzf harbor-enterprise-${CHANNEL}-airgap.tgz
+tar -xzf "$BUNDLE_FILE"
 
 echo "Verifying extracted files..."
 ls -la
