@@ -455,7 +455,40 @@ jobs:
           echo "Setting network policy to airgap..."
           replicated network update "$NETWORK_ID" --policy airgap
 
-          echo "✅ Network policy set to airgap"
+          echo "✅ Network policy update command sent"
+
+          # Wait a few seconds for the status change to be reflected
+          echo "Waiting for VM status to update..."
+          sleep 5
+
+          # Poll for VM to finish updating (status changes to "updating" then back to "running")
+          MAX_WAIT=120  # 2 minutes
+          ELAPSED=0
+          INTERVAL=5
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            VM_STATUS=$(replicated vm ls --output json | jq -r '.[] | select(.id == "${{ steps.vm.outputs.vm_id }}") | .status')
+            echo "VM status: $VM_STATUS (elapsed: ${ELAPSED}s/${MAX_WAIT}s)"
+
+            if [[ "$VM_STATUS" == "running" ]]; then
+              echo "✅ VM is ready (status: running)"
+              break
+            elif [[ "$VM_STATUS" == "updating" ]]; then
+              echo "⏳ VM is updating, waiting ${INTERVAL}s..."
+              sleep $INTERVAL
+              ELAPSED=$((ELAPSED + INTERVAL))
+            else
+              echo "⚠️  Unexpected VM status: $VM_STATUS, waiting ${INTERVAL}s..."
+              sleep $INTERVAL
+              ELAPSED=$((ELAPSED + INTERVAL))
+            fi
+          done
+
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "⚠️  VM did not return to running status after ${MAX_WAIT}s, continuing anyway..."
+          fi
+
+          echo "✅ Air gap network policy applied"
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
