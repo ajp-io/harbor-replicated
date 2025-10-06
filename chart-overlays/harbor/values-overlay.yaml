@@ -49,6 +49,6 @@ exporter:
   image:
     repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-exporter
 replicated:
-  global:
-    imageRegistry: images.alexparker.info
+  image:
+    registry: images.alexparker.info
 
