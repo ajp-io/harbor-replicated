@@ -68,39 +68,31 @@ spec:
       values:
         core:
           image:
-            registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/harbor-core'
+            repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/harbor-core'
         jobservice:
           image:
-            registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/harbor-jobservice'
+            repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/harbor-jobservice'
         registry:
           registry:
             image:
-              registry: '{{repl LocalRegistryHost }}'
-              repository: '{{repl LocalRegistryNamespace }}/registry-photon'
+              repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/registry-photon'
           controller:
             image:
-              registry: '{{repl LocalRegistryHost }}'
-              repository: '{{repl LocalRegistryNamespace }}/harbor-registryctl'
+              repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/harbor-registryctl'
         portal:
           image:
-            registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/harbor-portal'
+            repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/harbor-portal'
         database:
           internal:
             image:
-              registry: '{{repl LocalRegistryHost }}'
-              repository: '{{repl LocalRegistryNamespace }}/harbor-db'
+              repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/harbor-db'
         redis:
           internal:
             image:
-              registry: '{{repl LocalRegistryHost }}'
-              repository: '{{repl LocalRegistryNamespace }}/redis-photon'
+              repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/redis-photon'
         trivy:
           image:
-            registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/trivy-adapter-photon'
+            repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/trivy-adapter-photon'
   builder:
     global:
       replicated:

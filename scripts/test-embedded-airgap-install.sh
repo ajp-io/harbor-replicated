@@ -106,7 +106,7 @@ echo "Waiting for NGINX Ingress Controller to be available..."
 $KUBECTL wait deployment/ingress-nginx-controller --for=condition=available -n kotsadm --timeout=300s
 
 echo "Waiting for NGINX Ingress Controller service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/ingress-nginx-controller-admission -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=ingress-nginx-controller-admission -n kotsadm --timeout=300s
 
 # Wait for cert-manager resources (deployed second)
 echo "Waiting for cert-manager to be available..."
@@ -119,10 +119,10 @@ echo "Waiting for cert-manager-cainjector to be available..."
 $KUBECTL wait deployment/cert-manager-cainjector --for=condition=available -n kotsadm --timeout=300s
 
 echo "Waiting for cert-manager service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/cert-manager -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=cert-manager -n kotsadm --timeout=300s
 
 echo "Waiting for cert-manager-webhook service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/cert-manager-webhook -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=cert-manager-webhook -n kotsadm --timeout=300s
 
 # Wait for Harbor resources (deployed third)
 echo "Waiting for PostgreSQL StatefulSet to have ready replicas..."
@@ -147,31 +147,31 @@ echo "Waiting for Harbor Jobservice deployment to be available..."
 $KUBECTL wait deployment/harbor-jobservice --for=condition=available -n kotsadm --timeout=300s
 
 echo "Waiting for PostgreSQL service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-database -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-database -n kotsadm --timeout=300s
 
 echo "Waiting for Redis service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-redis -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-redis -n kotsadm --timeout=300s
 
 echo "Waiting for Harbor Core service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-core -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-core -n kotsadm --timeout=300s
 
 echo "Waiting for Harbor Portal service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-portal -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-portal -n kotsadm --timeout=300s
 
 echo "Waiting for Harbor Registry service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-registry -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-registry -n kotsadm --timeout=300s
 
 echo "Waiting for Harbor Jobservice service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-jobservice -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-jobservice -n kotsadm --timeout=300s
 
 echo "Waiting for Trivy service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-trivy -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-trivy -n kotsadm --timeout=300s
 
 echo "Waiting for Replicated SDK deployment to be available..."
 $KUBECTL wait deployment/replicated --for=condition=available -n kotsadm --timeout=300s
 
 echo "Waiting for Replicated SDK service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/replicated -n kotsadm --timeout=300s
+$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=replicated -n kotsadm --timeout=300s
 
 echo "All resources verified and ready!"
 
