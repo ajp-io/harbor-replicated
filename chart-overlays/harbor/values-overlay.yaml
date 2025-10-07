@@ -48,7 +48,3 @@ redis:
 exporter:
   image:
     repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-exporter
-replicated:
-  image:
-    registry: images.alexparker.info
-
