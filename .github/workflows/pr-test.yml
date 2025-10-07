@@ -253,7 +253,7 @@ jobs:
           # Run the test script on the VM with the test version and hostname
           echo "Running embedded cluster installation test for version: ${{ needs.create-release.outputs.test_version }}"
           echo "Harbor will be accessible at: https://${{ steps.vm.outputs.hostname }}"
-          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'chmod +x /tmp/test.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" CHANNEL="unstable" /tmp/test.sh'
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 $SSH_ENDPOINT 'chmod +x /tmp/test.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" CHANNEL="unstable" /tmp/test.sh'
 
           echo "Test completed successfully!"
         env:
@@ -554,7 +554,7 @@ jobs:
           # Run the air gap test script on the VM with the test version and hostname
           echo "Running embedded cluster air gap installation test for version: ${{ needs.create-release.outputs.test_version }}"
           echo "Harbor will be accessible at: https://${{ steps.vm.outputs.hostname }}"
-          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'chmod +x /tmp/test-airgap.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" CHANNEL="unstable" /tmp/test-airgap.sh'
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 $SSH_ENDPOINT 'chmod +x /tmp/test-airgap.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" CHANNEL="unstable" /tmp/test-airgap.sh'
 
           echo "Air gap test completed successfully!"
         env:
