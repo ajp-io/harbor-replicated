@@ -535,11 +535,11 @@ jobs:
 
           echo "Verifying air gap isolation by testing external connectivity..."
 
-          # Test that external connections fail (use timeout to avoid hanging)
-          if ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'timeout 10 curl -s https://google.com || true' | grep -q "Could not resolve host\|Connection timed out\|Network is unreachable"; then
-            echo "✅ Air gap verified: external connections are blocked"
+          # Test that external connections fail (curl should fail in air gap)
+          if ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'timeout 10 curl -f -s https://google.com' >/dev/null 2>&1; then
+            echo "⚠️  Air gap may not be properly configured - external connections succeeded"
           else
-            echo "⚠️  Air gap may not be properly configured - continuing anyway"
+            echo "✅ Air gap verified: external connections are blocked"
           fi
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
