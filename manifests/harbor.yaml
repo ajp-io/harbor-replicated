@@ -93,6 +93,9 @@ spec:
         trivy:
           image:
             repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/trivy-adapter-photon'
+        replicated:
+          imagePullSecrets:
+            - name: '{{repl ImagePullSecretName }}'
   builder:
     global:
       replicated:
