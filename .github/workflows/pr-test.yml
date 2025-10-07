@@ -402,12 +402,10 @@ jobs:
           echo "Checking build status for version: $TEST_VERSION"
 
           while [ $ELAPSED -lt $MAX_WAIT ]; do
-              # Get release info for the test version
-              RELEASE_INFO=$(curl -s "https://api.replicated.com/vendor/v3/app/${APP_ID}/channel/${CHANNEL_ID}/releases" \
+              # Get air gap status for the test version (take first/most recent if multiple exist)
+              AIRGAP_STATUS=$(curl -s "https://api.replicated.com/vendor/v3/app/${APP_ID}/channel/${CHANNEL_ID}/releases" \
                 -H "Authorization: ${REPLICATED_API_TOKEN}" | \
-                jq -r ".releases[] | select(.semver == \"$TEST_VERSION\")")
-
-              AIRGAP_STATUS=$(echo "$RELEASE_INFO" | jq -r '.airgapBuildStatus')
+                jq -r "first(.releases[] | select(.semver == \"$TEST_VERSION\") | .airgapBuildStatus)")
 
               echo "Air gap build status: $AIRGAP_STATUS (elapsed: ${ELAPSED}s/${MAX_WAIT}s)"
 
