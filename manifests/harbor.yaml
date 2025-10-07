@@ -69,38 +69,38 @@ spec:
         core:
           image:
             registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/goharbor/harbor-core'
+            repository: '{{repl LocalRegistryNamespace }}/harbor-core'
         jobservice:
           image:
             registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/goharbor/harbor-jobservice'
+            repository: '{{repl LocalRegistryNamespace }}/harbor-jobservice'
         registry:
           registry:
             image:
               registry: '{{repl LocalRegistryHost }}'
-              repository: '{{repl LocalRegistryNamespace }}/goharbor/registry-photon'
+              repository: '{{repl LocalRegistryNamespace }}/registry-photon'
           controller:
             image:
               registry: '{{repl LocalRegistryHost }}'
-              repository: '{{repl LocalRegistryNamespace }}/goharbor/harbor-registryctl'
+              repository: '{{repl LocalRegistryNamespace }}/harbor-registryctl'
         portal:
           image:
             registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/goharbor/harbor-portal'
+            repository: '{{repl LocalRegistryNamespace }}/harbor-portal'
         database:
           internal:
             image:
               registry: '{{repl LocalRegistryHost }}'
-              repository: '{{repl LocalRegistryNamespace }}/goharbor/harbor-db'
+              repository: '{{repl LocalRegistryNamespace }}/harbor-db'
         redis:
           internal:
             image:
               registry: '{{repl LocalRegistryHost }}'
-              repository: '{{repl LocalRegistryNamespace }}/goharbor/redis-photon'
+              repository: '{{repl LocalRegistryNamespace }}/redis-photon'
         trivy:
           image:
             registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/goharbor/trivy-adapter-photon'
+            repository: '{{repl LocalRegistryNamespace }}/trivy-adapter-photon'
   builder:
     global:
       replicated:

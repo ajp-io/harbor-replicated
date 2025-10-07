@@ -30,9 +30,9 @@ spec:
         controller:
           image:
             registry: '{{repl LocalRegistryHost }}'
-            image: '{{repl LocalRegistryNamespace }}/ingress-nginx/controller'
+            image: '{{repl LocalRegistryNamespace }}/controller'
           admissionWebhooks:
             patch:
               image:
                 registry: '{{repl LocalRegistryHost }}'
-                image: '{{repl LocalRegistryNamespace }}/ingress-nginx/kube-webhook-certgen'
+                image: '{{repl LocalRegistryNamespace }}/kube-webhook-certgen'

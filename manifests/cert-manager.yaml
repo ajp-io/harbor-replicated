@@ -25,22 +25,22 @@ spec:
       values:
         image:
           registry: '{{repl LocalRegistryHost }}'
-          repository: '{{repl LocalRegistryNamespace }}/jetstack/cert-manager-controller'
+          repository: '{{repl LocalRegistryNamespace }}/cert-manager-controller'
         webhook:
           image:
             registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/jetstack/cert-manager-webhook'
+            repository: '{{repl LocalRegistryNamespace }}/cert-manager-webhook'
         cainjector:
           image:
             registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/jetstack/cert-manager-cainjector'
+            repository: '{{repl LocalRegistryNamespace }}/cert-manager-cainjector'
         acmesolver:
           image:
             registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/jetstack/cert-manager-acmesolver'
+            repository: '{{repl LocalRegistryNamespace }}/cert-manager-acmesolver'
         startupapicheck:
           image:
             registry: '{{repl LocalRegistryHost }}'
-            repository: '{{repl LocalRegistryNamespace }}/jetstack/cert-manager-startupapicheck'
+            repository: '{{repl LocalRegistryNamespace }}/cert-manager-startupapicheck'
   builder:
     installCRDs: true # Ensure all images are discovered during air gap build
