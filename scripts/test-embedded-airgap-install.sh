@@ -188,6 +188,12 @@ $KUBECTL get deployment/cert-manager-cainjector -n kotsadm || {
 echo "Waiting for cert-manager-cainjector to be available..."
 $KUBECTL wait deployment/cert-manager-cainjector --for=condition=available -n kotsadm --timeout=300s
 
+echo "Waiting for cert-manager service to have endpoints..."
+$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/cert-manager -n kotsadm --timeout=300s
+
+echo "Waiting for cert-manager-webhook service to have endpoints..."
+$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/cert-manager-webhook -n kotsadm --timeout=300s
+
 # Verify NGINX Ingress Controller
 echo "Checking NGINX Ingress Controller..."
 $KUBECTL get deployment/ingress-nginx-controller -n kotsadm || {
@@ -197,6 +203,9 @@ $KUBECTL get deployment/ingress-nginx-controller -n kotsadm || {
 
 echo "Waiting for NGINX Ingress Controller to be available..."
 $KUBECTL wait deployment/ingress-nginx-controller --for=condition=available -n kotsadm --timeout=300s
+
+echo "Waiting for NGINX Ingress Controller service to have endpoints..."
+$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/ingress-nginx-controller-admission -n kotsadm --timeout=300s
 
 # Check cert-manager resources
 echo "Checking ClusterIssuer for Let's Encrypt..."

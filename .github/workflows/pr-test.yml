@@ -453,7 +453,6 @@ jobs:
           BUNDLE_URL=\"https://updates.alexparker.info/embedded/harbor-enterprise/\${CHANNEL}/\${TEST_VERSION}?airgap=true\"
           BUNDLE_FILE=\"/tmp/harbor-enterprise-airgap.tgz\"
 
-          echo \"Downloading air gap bundle...\"
           HTTP_CODE=\$(curl -w \"%{http_code}\" -s -o \"\$BUNDLE_FILE\" -H \"Authorization: \${LICENSE_ID}\" \"\$BUNDLE_URL\")
 
           if [ \"\$HTTP_CODE\" = \"200\" ]; then
