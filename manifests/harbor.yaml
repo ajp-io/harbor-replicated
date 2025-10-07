@@ -18,6 +18,9 @@ spec:
     harborAdminPassword: repl{{ ConfigOption "harbor_admin_password" }}
     trivy:
       enabled: repl{{ ConfigOptionEquals "trivy_enabled" "1" }}
+    replicated:
+      imagePullSecrets:
+        - name: '{{repl ImagePullSecretName }}'
   optionalValues:
     # Embedded Cluster - Use Ingress with HTTPS
     - when: 'repl{{ eq Distribution "embedded-cluster" }}'
@@ -93,9 +96,6 @@ spec:
         trivy:
           image:
             repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/trivy-adapter-photon'
-        replicated:
-          imagePullSecrets:
-            - name: '{{repl ImagePullSecretName }}'
   builder:
     global:
       replicated:
