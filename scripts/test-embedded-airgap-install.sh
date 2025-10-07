@@ -93,21 +93,38 @@ KUBECTL="sudo KUBECONFIG=/var/lib/embedded-cluster/k0s/pki/admin.conf /var/lib/e
 echo "Waiting for components to deploy asynchronously in dependency order..."
 
 # Stage 1: NGINX Ingress Controller (deployed first)
-poll_for_resources "NGINX Ingress Controller" 180 "$KUBECTL get deployment ingress-nginx-controller -n kotsadm >/dev/null 2>&1"
+poll_for_resources "NGINX resources" 180 "$KUBECTL get deployment ingress-nginx-controller -n kotsadm >/dev/null 2>&1"
 
-# Stage 2: cert-manager components (deployed after NGINX)
-poll_for_resources "cert-manager components" 180 "$KUBECTL get deployment cert-manager -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-webhook -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-cainjector -n kotsadm >/dev/null 2>&1"
+# Stage 2: cert-manager (deployed after NGINX)
+poll_for_resources "cert-manager resources" 180 "$KUBECTL get deployment cert-manager -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-webhook -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-cainjector -n kotsadm >/dev/null 2>&1"
 
-# Stage 3: Harbor resources (deployed after cert-manager)
+# Stage 3: Harbor (deployed after cert-manager)
 poll_for_resources "Harbor resources" 180 "$KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1"
 
-echo "Checking cluster status..."
-$KUBECTL get nodes
+# Wait for NGINX resources (deployed first)
+echo "Waiting for NGINX Ingress Controller to be available..."
+$KUBECTL wait deployment/ingress-nginx-controller --for=condition=available -n kotsadm --timeout=300s
 
-echo "Checking all resources..."
-$KUBECTL get deployment,statefulset,service -n kotsadm | grep harbor || true
+echo "Waiting for NGINX Ingress Controller service to have endpoints..."
+$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/ingress-nginx-controller-admission -n kotsadm --timeout=300s
 
-# Wait for StatefulSets first (dependencies)
+# Wait for cert-manager resources (deployed second)
+echo "Waiting for cert-manager to be available..."
+$KUBECTL wait deployment/cert-manager --for=condition=available -n kotsadm --timeout=300s
+
+echo "Waiting for cert-manager-webhook to be available..."
+$KUBECTL wait deployment/cert-manager-webhook --for=condition=available -n kotsadm --timeout=300s
+
+echo "Waiting for cert-manager-cainjector to be available..."
+$KUBECTL wait deployment/cert-manager-cainjector --for=condition=available -n kotsadm --timeout=300s
+
+echo "Waiting for cert-manager service to have endpoints..."
+$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/cert-manager -n kotsadm --timeout=300s
+
+echo "Waiting for cert-manager-webhook service to have endpoints..."
+$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/cert-manager-webhook -n kotsadm --timeout=300s
+
+# Wait for Harbor resources (deployed third)
 echo "Waiting for PostgreSQL StatefulSet to have ready replicas..."
 $KUBECTL wait statefulset/harbor-database --for=jsonpath='{.status.readyReplicas}'=1 -n kotsadm --timeout=300s
 
@@ -117,7 +134,6 @@ $KUBECTL wait statefulset/harbor-redis --for=jsonpath='{.status.readyReplicas}'=
 echo "Waiting for Trivy StatefulSet to have ready replicas..."
 $KUBECTL wait statefulset/harbor-trivy --for=jsonpath='{.status.readyReplicas}'=1 -n kotsadm --timeout=300s
 
-# Wait for Deployments (Harbor depends on database/cache)
 echo "Waiting for Harbor Core deployment to be available..."
 $KUBECTL wait deployment/harbor-core --for=condition=available -n kotsadm --timeout=300s
 
@@ -130,7 +146,6 @@ $KUBECTL wait deployment/harbor-registry --for=condition=available -n kotsadm --
 echo "Waiting for Harbor Jobservice deployment to be available..."
 $KUBECTL wait deployment/harbor-jobservice --for=condition=available -n kotsadm --timeout=300s
 
-# Wait for Services to have endpoints (confirms they have healthy backends)
 echo "Waiting for PostgreSQL service to have endpoints..."
 $KUBECTL wait --for=jsonpath='{.subsets}' endpoints/harbor-database -n kotsadm --timeout=300s
 
@@ -159,53 +174,6 @@ echo "Waiting for Replicated SDK service to have endpoints..."
 $KUBECTL wait --for=jsonpath='{.subsets}' endpoints/replicated -n kotsadm --timeout=300s
 
 echo "All resources verified and ready!"
-
-# Verify cert-manager
-echo "Checking cert-manager deployment..."
-$KUBECTL get deployment/cert-manager -n kotsadm || {
-    echo "❌ cert-manager deployment not found"
-    exit 1
-}
-
-echo "Waiting for cert-manager to be available..."
-$KUBECTL wait deployment/cert-manager --for=condition=available -n kotsadm --timeout=300s
-
-echo "Checking cert-manager-webhook deployment..."
-$KUBECTL get deployment/cert-manager-webhook -n kotsadm || {
-    echo "❌ cert-manager-webhook deployment not found"
-    exit 1
-}
-
-echo "Waiting for cert-manager-webhook to be available..."
-$KUBECTL wait deployment/cert-manager-webhook --for=condition=available -n kotsadm --timeout=300s
-
-echo "Checking cert-manager-cainjector deployment..."
-$KUBECTL get deployment/cert-manager-cainjector -n kotsadm || {
-    echo "❌ cert-manager-cainjector deployment not found"
-    exit 1
-}
-
-echo "Waiting for cert-manager-cainjector to be available..."
-$KUBECTL wait deployment/cert-manager-cainjector --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for cert-manager service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/cert-manager -n kotsadm --timeout=300s
-
-echo "Waiting for cert-manager-webhook service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/cert-manager-webhook -n kotsadm --timeout=300s
-
-# Verify NGINX Ingress Controller
-echo "Checking NGINX Ingress Controller..."
-$KUBECTL get deployment/ingress-nginx-controller -n kotsadm || {
-    echo "❌ NGINX Ingress Controller not found"
-    exit 1
-}
-
-echo "Waiting for NGINX Ingress Controller to be available..."
-$KUBECTL wait deployment/ingress-nginx-controller --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for NGINX Ingress Controller service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.subsets}' endpoints/ingress-nginx-controller-admission -n kotsadm --timeout=300s
 
 # Check cert-manager resources
 echo "Checking ClusterIssuer for Let's Encrypt..."
