@@ -4,5 +4,7 @@
 # Helm package artifacts
 manifests/*.tgz
 
-# Helm dependency charts
-harbor/charts/
+# Helm dependency charts and lock files
+charts/*/charts/
+charts/*/requirements.lock
+charts/*/.helmignore
