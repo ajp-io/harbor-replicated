@@ -1,6 +1,6 @@
 # Generated image overlay for cert-manager chart
-# Source: cert-manager vv1.18.2
-# Generated: 2025-09-29 17:14:20
+# Source: cert-manager vv1.19.0
+# Generated: 2025-10-08 09:19:48
 #
 # Image transformations applied:
 # - quay.io/jetstack/cert-manager-controller → images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-controller
