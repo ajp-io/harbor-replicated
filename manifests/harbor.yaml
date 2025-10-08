@@ -18,6 +18,9 @@ spec:
     harborAdminPassword: repl{{ ConfigOption "harbor_admin_password" }}
     trivy:
       enabled: repl{{ ConfigOptionEquals "trivy_enabled" "1" }}
+    replicated:
+      imagePullSecrets:
+        - name: '{{repl ImagePullSecretName }}'
   optionalValues:
     # Embedded Cluster - Use Ingress with HTTPS
     - when: 'repl{{ eq Distribution "embedded-cluster" }}'
@@ -62,6 +65,41 @@ spec:
           type: internal
           internal:
             password: repl{{ ConfigOption "embedded_postgres_password" }}
+    # Air gap - Use local registry
+    - when: 'repl{{ HasLocalRegistry }}'
+      recursiveMerge: true
+      values:
+        core:
+          image:
+            repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/harbor-core'
+        jobservice:
+          image:
+            repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/harbor-jobservice'
+        registry:
+          registry:
+            image:
+              repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/registry-photon'
+          controller:
+            image:
+              repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/harbor-registryctl'
+        portal:
+          image:
+            repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/harbor-portal'
+        database:
+          internal:
+            image:
+              repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/harbor-db'
+        redis:
+          internal:
+            image:
+              repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/redis-photon'
+        trivy:
+          image:
+            repository: '{{repl LocalRegistryHost }}/{{repl LocalRegistryNamespace }}/trivy-adapter-photon'
+        replicated:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/replicated-sdk-image'
   builder:
     global:
       replicated:

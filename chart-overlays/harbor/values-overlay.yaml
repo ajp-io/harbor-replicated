@@ -31,7 +31,6 @@ registry:
   registry:
     image:
       repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/registry-photon
-registry:
   controller:
     image:
       repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-registryctl
@@ -49,4 +48,7 @@ redis:
 exporter:
   image:
     repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-exporter
+replicated:
+  image:
+    registry: images.alexparker.info
 

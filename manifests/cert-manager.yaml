@@ -18,3 +18,29 @@ spec:
     global:
       imagePullSecrets:
         - name: '{{repl ImagePullSecretName }}'
+  optionalValues:
+    # Air gap - Use local registry
+    - when: 'repl{{ HasLocalRegistry }}'
+      recursiveMerge: true
+      values:
+        image:
+          registry: '{{repl LocalRegistryHost }}'
+          repository: '{{repl LocalRegistryNamespace }}/cert-manager-controller'
+        webhook:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/cert-manager-webhook'
+        cainjector:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/cert-manager-cainjector'
+        acmesolver:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/cert-manager-acmesolver'
+        startupapicheck:
+          image:
+            registry: '{{repl LocalRegistryHost }}'
+            repository: '{{repl LocalRegistryNamespace }}/cert-manager-startupapicheck'
+  builder:
+    installCRDs: true # Ensure all images are discovered during air gap build

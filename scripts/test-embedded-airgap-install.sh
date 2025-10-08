@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== Harbor Embedded Cluster Installation Test ==="
+echo "=== Harbor Embedded Cluster Air Gap Installation Test ==="
 echo "Starting at: $(date)"
 
 # Validate required environment variables
@@ -22,28 +22,33 @@ echo "Updating config values with ingress hostname..."
 ESCAPED_HOSTNAME=$(printf '%s\n' "$HOSTNAME" | sed 's/[[\.*^$()+?{|]/\\&/g')
 sed -i "s/harbor\\.local/$ESCAPED_HOSTNAME/g" /tmp/config-values.yaml
 
-echo "Downloading Embedded Cluster installation assets for version: ${TEST_VERSION}"
+echo "Using pre-downloaded air gap bundle for version: ${TEST_VERSION}"
 
-# Support custom channel (default: unstable)
-CHANNEL="${CHANNEL:-unstable}"
-echo "Using channel: ${CHANNEL}"
+# Verify the air gap bundle exists (should have been transferred before air-gapping the VM)
+BUNDLE_FILE="/tmp/harbor-enterprise-airgap.tgz"
 
-curl -f "https://updates.alexparker.info/embedded/harbor-enterprise/${CHANNEL}/${TEST_VERSION}" \
-  -H "Authorization: ${LICENSE_ID}" \
-  -o harbor-enterprise-${CHANNEL}.tgz
+if [[ ! -f "$BUNDLE_FILE" ]]; then
+    echo "❌ Air gap bundle not found at $BUNDLE_FILE"
+    echo "Bundle must be downloaded and transferred before air-gapping the VM"
+    exit 1
+fi
 
-echo "Extracting installation assets..."
-tar -xzf harbor-enterprise-${CHANNEL}.tgz
+echo "✅ Air gap bundle found"
+ls -lh "$BUNDLE_FILE"
+
+echo "Extracting air gap installation assets..."
+tar -xzf "$BUNDLE_FILE"
 
 echo "Verifying extracted files..."
 ls -la
 
-echo "Installing Harbor Enterprise with Embedded Cluster..."
+echo "Installing Harbor Enterprise with Embedded Cluster in air gap mode..."
 echo "This may take several minutes..."
 
 # This command blocks until installation completes
 sudo ./harbor-enterprise install \
   --license license.yaml \
+  --airgap-bundle harbor-enterprise.airgap \
   --config-values /tmp/config-values.yaml \
   --admin-console-password "TestAdminPassword123!" \
   -y
@@ -246,6 +251,6 @@ fi
 
 echo "Cluster verification complete!"
 
-echo "=== Harbor Embedded Cluster Installation Test PASSED ==="
+echo "=== Harbor Embedded Cluster Air Gap Installation Test PASSED ==="
 echo "✅ Harbor is accessible at: https://${HOSTNAME}"
 echo "Completed at: $(date)"

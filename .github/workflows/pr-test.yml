@@ -253,7 +253,7 @@ jobs:
           # Run the test script on the VM with the test version and hostname
           echo "Running embedded cluster installation test for version: ${{ needs.create-release.outputs.test_version }}"
           echo "Harbor will be accessible at: https://${{ steps.vm.outputs.hostname }}"
-          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'chmod +x /tmp/test.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" CHANNEL="unstable" /tmp/test.sh'
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 $SSH_ENDPOINT 'chmod +x /tmp/test.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" CHANNEL="unstable" /tmp/test.sh'
 
           echo "Test completed successfully!"
         env:
@@ -264,6 +264,306 @@ jobs:
         run: |
           if [[ -n "${{ steps.vm.outputs.vm_id }}" ]]; then
             echo "✅ Test passed! Cleaning up VM: ${{ steps.vm.outputs.vm_id }}"
+            replicated vm rm ${{ steps.vm.outputs.vm_id }} || true
+            echo "VM cleanup completed"
+          fi
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+  test-embedded-cluster-airgap:
+    if: false  # Disabled until air gap testing is fully working
+    needs: create-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Replicated CLI
+        run: |
+          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+          | grep "browser_download_url.*linux_amd64.tar.gz" \
+          | cut -d : -f 2,3 \
+          | tr -d \" \
+          | wget -O replicated.tar.gz -qi -
+          tar xf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/
+
+      - name: Create test VM and expose ingress port
+        id: vm
+        run: |
+          # Create VM for air gap testing with 10 minute wait and unique name
+          COMMIT_SHORT=$(git rev-parse --short HEAD)
+          VM_NAME="embedded-airgap-pr${{ github.event.pull_request.number }}-r${{ github.run_number }}-${COMMIT_SHORT}"
+          echo "Creating VM for air gap testing: $VM_NAME (waiting up to 10 minutes)..."
+          VM_OUTPUT=$(replicated vm create \
+            --distribution ubuntu \
+            --version 22.04 \
+            --instance-type r1.small \
+            --name "$VM_NAME" \
+            --wait 10m \
+            --output json)
+
+          echo "VM creation output:"
+          echo "$VM_OUTPUT"
+
+          # Try to extract VM ID - handle both object and array responses
+          VM_ID=$(echo "$VM_OUTPUT" | jq -r 'if type == "array" then .[0].id else .id end')
+
+          if [[ -z "$VM_ID" || "$VM_ID" == "null" ]]; then
+            echo "❌ Failed to get VM ID from output"
+            exit 1
+          fi
+
+          echo "✅ VM created and ready: $VM_ID"
+
+          # Expose port 80 for HTTP (redirects to HTTPS)
+          echo "Exposing port 80 for HTTP redirects on VM: $VM_ID"
+          EXPOSE_HTTP_OUTPUT=$(replicated vm port expose $VM_ID --port 80 --protocol http --output json)
+          echo "HTTP port expose output:"
+          echo "$EXPOSE_HTTP_OUTPUT"
+
+          # Expose port 443 for HTTPS
+          echo "Exposing port 443 for HTTPS on VM: $VM_ID"
+          EXPOSE_HTTPS_OUTPUT=$(replicated vm port expose $VM_ID --port 443 --protocol https --output json)
+          echo "HTTPS port expose output:"
+          echo "$EXPOSE_HTTPS_OUTPUT"
+
+          # Expose port 30000 for KOTS Admin Console
+          echo "Exposing port 30000 for KOTS Admin Console on VM: $VM_ID"
+          EXPOSE_ADMIN_OUTPUT=$(replicated vm port expose $VM_ID --port 30000 --protocol http --output json)
+          echo "Admin Console port expose output:"
+          echo "$EXPOSE_ADMIN_OUTPUT"
+
+          HOSTNAME=$(echo "$EXPOSE_HTTPS_OUTPUT" | jq -r '.hostname')
+          ADMIN_HOSTNAME=$(echo "$EXPOSE_ADMIN_OUTPUT" | jq -r '.hostname')
+
+          if [[ -z "$HOSTNAME" || "$HOSTNAME" == "null" ]]; then
+            echo "❌ Failed to get hostname from HTTPS port expose output"
+            exit 1
+          fi
+
+          if [[ -z "$ADMIN_HOSTNAME" || "$ADMIN_HOSTNAME" == "null" ]]; then
+            echo "❌ Failed to get admin hostname from port 30000 expose output"
+            exit 1
+          fi
+
+          echo "✅ Ports 80 (HTTP), 443 (HTTPS), and 30000 (Admin Console) exposed"
+          echo "✅ Harbor will be accessible at: https://$HOSTNAME"
+          echo "✅ KOTS Admin Console will be accessible at: http://$ADMIN_HOSTNAME:30000"
+
+          echo "vm_id=$VM_ID" >> $GITHUB_OUTPUT
+          echo "hostname=$HOSTNAME" >> $GITHUB_OUTPUT
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ env.REPLICATED_APP }}
+
+      - name: Setup SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts and transfer files
+        run: |
+          # Setup SSH known hosts
+          mkdir -p ~/.ssh
+          ssh-keyscan replicatedvm.com >> ~/.ssh/known_hosts
+
+          # Get SCP endpoint for file transfers
+          SCP_ENDPOINT=$(replicated vm scp-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          echo "SCP endpoint: $SCP_ENDPOINT"
+
+          # Make scripts executable
+          chmod +x scripts/test-embedded-airgap-install.sh
+
+          # Transfer test files to VM home directory first
+          scp -O -o StrictHostKeyChecking=no test/config-values.yaml $SCP_ENDPOINT/config-values.yaml
+          scp -O -o StrictHostKeyChecking=no scripts/test-embedded-airgap-install.sh $SCP_ENDPOINT/test-airgap.sh
+
+          # Get SSH endpoint and move files to /tmp
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'sudo mv config-values.yaml /tmp/ && sudo mv test-airgap.sh /tmp/ && ls -la /tmp/'
+
+          echo "Files transferred successfully"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Wait for air gap bundle to be built
+        run: |
+          # Poll Replicated API to check when air gap bundle is ready
+          echo "Polling Replicated API for air gap bundle build status..."
+
+          MAX_WAIT=900
+          ELAPSED=0
+          INTERVAL=30
+          TEST_VERSION="${{ needs.create-release.outputs.test_version }}"
+          APP_ID="32pjZWACSuLFl7A6SsD9jRS7W9e"
+          CHANNEL_ID="32pjZh5G59AZc4WUf6ZVffLHllV"
+
+          echo "Checking build status for version: $TEST_VERSION"
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+              # Get air gap status for the test version (take first/most recent if multiple exist)
+              AIRGAP_STATUS=$(curl -s "https://api.replicated.com/vendor/v3/app/${APP_ID}/channel/${CHANNEL_ID}/releases" \
+                -H "Authorization: ${REPLICATED_API_TOKEN}" | \
+                jq -r "first(.releases[] | select(.semver == \"$TEST_VERSION\") | .airgapBuildStatus)")
+
+              echo "Air gap build status: $AIRGAP_STATUS (elapsed: ${ELAPSED}s/${MAX_WAIT}s)"
+
+              if [ "$AIRGAP_STATUS" = "built" ]; then
+                  echo "✅ Air gap bundle is ready!"
+                  break
+              elif [ "$AIRGAP_STATUS" = "building_bundle" ]; then
+                  echo "Air gap bundle is still building, waiting ${INTERVAL}s..."
+                  sleep $INTERVAL
+                  ELAPSED=$((ELAPSED + INTERVAL))
+              elif [ "$AIRGAP_STATUS" = "failed" ]; then
+                  echo "❌ Air gap bundle build failed"
+                  exit 1
+              elif [ "$AIRGAP_STATUS" = "metadata" ]; then
+                  echo "❌ No air gap bundle is being built (status: metadata)"
+                  exit 1
+              else
+                  echo "❌ Unknown air gap build status: $AIRGAP_STATUS"
+                  exit 1
+              fi
+          done
+
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+              echo "❌ Timeout: Air gap bundle not ready after ${MAX_WAIT}s"
+              exit 1
+          fi
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Download air gap bundle on VM
+        run: |
+          # Download air gap bundle directly on VM before air-gapping
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          echo "SSH endpoint: $SSH_ENDPOINT"
+
+          echo "Downloading air gap bundle on VM..."
+
+          # Execute remote command to download bundle
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT bash -c "'
+          CHANNEL=\"unstable\"
+          TEST_VERSION=\"${{ needs.create-release.outputs.test_version }}\"
+          LICENSE_ID=\"${{ secrets.HARBOR_LICENSE_ID }}\"
+          BUNDLE_URL=\"https://updates.alexparker.info/embedded/harbor-enterprise/\${CHANNEL}/\${TEST_VERSION}?airgap=true\"
+          BUNDLE_FILE=\"/tmp/harbor-enterprise-airgap.tgz\"
+
+          HTTP_CODE=\$(curl -w \"%{http_code}\" -s -o \"\$BUNDLE_FILE\" -H \"Authorization: \${LICENSE_ID}\" \"\$BUNDLE_URL\")
+
+          if [ \"\$HTTP_CODE\" = \"200\" ]; then
+              echo \"Air gap bundle downloaded successfully!\"
+              ls -lh \"\$BUNDLE_FILE\"
+              exit 0
+          else
+              echo \"Download failed with HTTP status \$HTTP_CODE\"
+              exit 1
+          fi
+          '"
+
+          echo "Air gap bundle downloaded to VM successfully"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Configure air gap network policy
+        run: |
+          # Get VM details to find network ID
+          VM_DETAILS=$(replicated vm ls --output json)
+          echo "VM list output:"
+          echo "$VM_DETAILS"
+
+          # Extract network ID for this VM
+          NETWORK_ID=$(echo "$VM_DETAILS" | jq -r '.[] | select(.id == "${{ steps.vm.outputs.vm_id }}") | .network_id')
+
+          if [[ -z "$NETWORK_ID" || "$NETWORK_ID" == "null" ]]; then
+            echo "❌ Failed to get network ID from VM details"
+            exit 1
+          fi
+
+          echo "Network ID: $NETWORK_ID"
+
+          # Update network policy to airgap
+          echo "Setting network policy to airgap..."
+          replicated network update "$NETWORK_ID" --policy airgap
+
+          echo "✅ Network policy update command sent"
+
+          # Wait a few seconds for the status change to be reflected
+          echo "Waiting for VM status to update..."
+          sleep 5
+
+          # Poll for VM to finish updating (status changes to "updating" then back to "running")
+          MAX_WAIT=120  # 2 minutes
+          ELAPSED=0
+          INTERVAL=5
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            VM_STATUS=$(replicated vm ls --output json | jq -r '.[] | select(.id == "${{ steps.vm.outputs.vm_id }}") | .status')
+            echo "VM status: $VM_STATUS (elapsed: ${ELAPSED}s/${MAX_WAIT}s)"
+
+            if [[ "$VM_STATUS" == "running" ]]; then
+              echo "✅ VM is ready (status: running)"
+              break
+            elif [[ "$VM_STATUS" == "updating" ]]; then
+              echo "⏳ VM is updating, waiting ${INTERVAL}s..."
+              sleep $INTERVAL
+              ELAPSED=$((ELAPSED + INTERVAL))
+            else
+              echo "⚠️  Unexpected VM status: $VM_STATUS, waiting ${INTERVAL}s..."
+              sleep $INTERVAL
+              ELAPSED=$((ELAPSED + INTERVAL))
+            fi
+          done
+
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "⚠️  VM did not return to running status after ${MAX_WAIT}s, continuing anyway..."
+          fi
+
+          echo "✅ Air gap network policy applied"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Verify air gap isolation
+        run: |
+          # Get SSH endpoint
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          echo "SSH endpoint: $SSH_ENDPOINT"
+
+          echo "Verifying air gap isolation by testing external connectivity..."
+
+          # Test that external connections fail (curl should fail in air gap)
+          if ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'timeout 10 curl -f -s https://google.com' >/dev/null 2>&1; then
+            echo "⚠️  Air gap may not be properly configured - external connections succeeded"
+          else
+            echo "✅ Air gap verified: external connections are blocked"
+          fi
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Run embedded cluster air gap installation test
+        id: test
+        run: |
+          # Get SSH endpoint for connection
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          echo "SSH endpoint: $SSH_ENDPOINT"
+
+          # Run the air gap test script on the VM with the test version and hostname
+          echo "Running embedded cluster air gap installation test for version: ${{ needs.create-release.outputs.test_version }}"
+          echo "Harbor will be accessible at: https://${{ steps.vm.outputs.hostname }}"
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 $SSH_ENDPOINT 'chmod +x /tmp/test-airgap.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" CHANNEL="unstable" /tmp/test-airgap.sh'
+
+          echo "Air gap test completed successfully!"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Cleanup VM
+        if: success()
+        run: |
+          if [[ -n "${{ steps.vm.outputs.vm_id }}" ]]; then
+            echo "✅ Air gap test passed! Cleaning up VM: ${{ steps.vm.outputs.vm_id }}"
             replicated vm rm ${{ steps.vm.outputs.vm_id }} || true
             echo "VM cleanup completed"
           fi
