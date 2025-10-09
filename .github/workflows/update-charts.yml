@@ -303,9 +303,7 @@ jobs:
             ${{ steps.check-updates.outputs.sdk_update_needed == 'true' && format('- Update SDK from v{0} to v{1}', steps.check-updates.outputs.current_sdk_version, steps.check-updates.outputs.latest_sdk_version) || '' }}
             ${{ steps.check-updates.outputs.ec_update_needed == 'true' && format('- Update Embedded Cluster from {0} to {1}', steps.check-updates.outputs.current_ec_version, steps.check-updates.outputs.latest_ec_version) || '' }}
 
-            - Applied customizations via overlay files
             - Updated manifest version references
-            - Preserved custom configurations
           title: ${{ steps.pr-details.outputs.pr_title }}
           body: |
             ## 🚀 Automated Updates
@@ -315,18 +313,20 @@ jobs:
             ### 📋 Summary
             ${{ steps.changelog.outputs.CHANGELOG }}
 
-            ### 🔧 Customizations Applied
-            All customizations are preserved through overlay files:
-            - **Harbor**: Image repositories, Replicated SDK dependency, cert-manager ClusterIssuers
-            - **Ingress-Nginx**: Global image registry override
-            - **Cert-Manager**: Image repositories for airgapped proxy registry
+            ### ⚠️ Manual Steps Required
+            This PR contains upstream charts with their original images. You must manually update:
+            - **Harbor**: Update image URLs to use `images.alexparker.info/proxy/harbor-enterprise/docker/*`
+            - **Harbor**: Ensure Replicated SDK dependency is present in `Chart.yaml`
+            - **Cert-Manager**: Update image URLs to use `images.alexparker.info/proxy/harbor-enterprise/quay/*`
+            - **Ingress-Nginx**: Ensure `global.image.registry` is set to `images.alexparker.info/proxy/harbor-enterprise/k8s`
             - **Embedded Cluster**: Version reference updated in manifest
 
             ### 🔍 Verification Checklist
+            - [ ] Update image URLs to use alexparker.info proxy
+            - [ ] Verify Harbor SDK dependency in Chart.yaml
             - [ ] Review `Chart.yaml` changes for version and dependencies
             - [ ] Check `values.yaml` for any breaking changes or new options
             - [ ] Verify template compatibility with existing deployments
-            - [ ] Validate that overlay files are correctly applied
             - [ ] Review Embedded Cluster version compatibility
             - [ ] Test deployment in staging environment
             - [ ] Ensure Replicated integration still works correctly
@@ -334,13 +334,11 @@ jobs:
             ### 📁 Files Modified
             - Charts: `charts/harbor/`, `charts/ingress-nginx/`, `charts/cert-manager/`
             - Manifests: `manifests/harbor.yaml`, `manifests/ingress-nginx.yaml`, `manifests/cert-manager.yaml`, `manifests/embedded-cluster.yaml`
-            - Overlays: Preserved in `chart-overlays/` directory
 
             ### 🤖 Automation Info
             - Workflow: `update-charts.yml`
             - Script: `scripts/update-charts.sh`
             - Trigger: ${{ github.event_name == 'schedule' && 'Scheduled daily check' || 'Manual trigger' }}
-            - Overlay System: Ensures all customizations are maintained
 
             ---
 

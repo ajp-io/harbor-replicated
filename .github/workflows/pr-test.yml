@@ -62,41 +62,11 @@ jobs:
           # Update dependencies to fetch the Replicated SDK for Harbor chart
           helm dependency update charts/harbor
 
-          # Apply overlays to charts before packaging
-          echo "Applying overlays to charts..."
-
-          # Function to apply committed overlay files
-          apply_overlay() {
-            local chart_name="$1"
-
-            echo "Applying overlays for $chart_name..."
-
-            # Apply values overlay if it exists (generated image transformations)
-            if [[ -f "chart-overlays/$chart_name/values-overlay.yaml" ]]; then
-              yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
-                "charts/$chart_name/values.yaml" \
-                "chart-overlays/$chart_name/values-overlay.yaml" > "/tmp/$chart_name-values.yaml"
-              mv "/tmp/$chart_name-values.yaml" "charts/$chart_name/values.yaml"
-              echo "  ✅ Applied values overlay for $chart_name"
-            fi
-
-
-            # If no overlays were found
-            if [[ ! -f "chart-overlays/$chart_name/values-overlay.yaml" ]]; then
-              echo "  ℹ️  No overlays found for $chart_name"
-            fi
-          }
-
-          # Apply overlays for each chart
-          apply_overlay "harbor"
-          apply_overlay "ingress-nginx"
-          apply_overlay "cert-manager"
-
-          # Package all three charts
+          # Package all charts
           echo "Packaging Harbor chart..."
           helm package charts/harbor -d manifests -u
 
-          echo "Packaging nginx-ingress chart..."
+          echo "Packaging ingress-nginx chart..."
           helm package charts/ingress-nginx -d manifests -u
 
           echo "Packaging cert-manager chart..."

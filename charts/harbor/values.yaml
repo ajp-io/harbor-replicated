@@ -498,7 +498,7 @@ containerSecurityContext:
 # If service exposed via "ingress", the Nginx will not be used
 nginx:
   image:
-    repository: goharbor/nginx-photon
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/nginx-photon
     tag: v2.14.0
   # set the service account to be used, default if left empty
   serviceAccountName: ""
@@ -529,7 +529,7 @@ nginx:
 
 portal:
   image:
-    repository: goharbor/harbor-portal
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-portal
     tag: v2.14.0
   # set the service account to be used, default if left empty
   serviceAccountName: ""
@@ -569,7 +569,7 @@ portal:
 
 core:
   image:
-    repository: goharbor/harbor-core
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-core
     tag: v2.14.0
   # set the service account to be used, default if left empty
   serviceAccountName: ""
@@ -658,7 +658,7 @@ core:
 
 jobservice:
   image:
-    repository: goharbor/harbor-jobservice
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-jobservice
     tag: v2.14.0
   # set the service account to be used, default if left empty
   serviceAccountName: ""
@@ -721,7 +721,7 @@ jobservice:
 registry:
   registry:
     image:
-      repository: goharbor/registry-photon
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/registry-photon
       tag: v2.14.0
     # resources:
     #  requests:
@@ -730,7 +730,7 @@ registry:
     extraEnvVars: []
   controller:
     image:
-      repository: goharbor/harbor-registryctl
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-registryctl
       tag: v2.14.0
     # resources:
     #  requests:
@@ -810,7 +810,7 @@ trivy:
   enabled: true
   image:
     # repository the repository for Trivy adapter image
-    repository: goharbor/trivy-adapter-photon
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/trivy-adapter-photon
     # tag the tag for Trivy adapter image
     tag: v2.14.0
   # set the service account to be used, default if left empty
@@ -915,7 +915,7 @@ database:
   type: internal
   internal:
     image:
-      repository: goharbor/harbor-db
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-db
       tag: v2.14.0
     # set the service account to be used, default if left empty
     serviceAccountName: ""
@@ -995,7 +995,7 @@ redis:
   type: internal
   internal:
     image:
-      repository: goharbor/redis-photon
+      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/redis-photon
       tag: v2.14.0
     # set the service account to be used, default if left empty
     serviceAccountName: ""
@@ -1065,7 +1065,7 @@ redis:
 
 exporter:
   image:
-    repository: goharbor/harbor-exporter
+    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-exporter
     tag: v2.14.0
   serviceAccountName: ""
   # mount the service account token

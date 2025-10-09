@@ -144,7 +144,7 @@ image:
 
   # The container image for the cert-manager controller.
   # +docs:property
-  repository: quay.io/jetstack/cert-manager-controller
+  repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-controller
 
   # Override the image tag to deploy by setting this variable.
   # If no value is set, the chart's appVersion is used.
@@ -880,7 +880,7 @@ webhook:
 
     # The container image for the cert-manager webhook
     # +docs:property
-    repository: quay.io/jetstack/cert-manager-webhook
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-webhook
 
     # Override the image tag to deploy by setting this variable.
     # If no value is set, the chart's appVersion will be used.
@@ -1189,7 +1189,7 @@ cainjector:
 
     # The container image for the cert-manager cainjector
     # +docs:property
-    repository: quay.io/jetstack/cert-manager-cainjector
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-cainjector
 
     # Override the image tag to deploy by setting this variable.
     # If no value is set, the chart's appVersion will be used.
@@ -1248,7 +1248,7 @@ acmesolver:
 
     # The container image for the cert-manager acmesolver.
     # +docs:property
-    repository: quay.io/jetstack/cert-manager-acmesolver
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-acmesolver
 
     # Override the image tag to deploy by setting this variable.
     # If no value is set, the chart's appVersion is used.
@@ -1381,7 +1381,7 @@ startupapicheck:
 
     # The container image for the cert-manager startupapicheck.
     # +docs:property
-    repository: quay.io/jetstack/cert-manager-startupapicheck
+    repository: images.alexparker.info/proxy/harbor-enterprise/quay/jetstack/cert-manager-startupapicheck
 
     # Override the image tag to deploy by setting this variable.
     # If no value is set, the chart's appVersion is used.

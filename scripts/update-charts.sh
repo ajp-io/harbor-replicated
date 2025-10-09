@@ -178,20 +178,6 @@ update_chart() {
     success "$chart_name chart files updated"
 }
 
-# Update Harbor chart overlay with actual SDK version
-update_harbor_chart_overlay() {
-    local sdk_version="$1"
-    local chart_overlay_file="$OVERLAY_DIR/harbor/chart-overlay.yaml"
-
-    if [[ -f "$chart_overlay_file" ]]; then
-        log "Updating Harbor chart overlay with SDK version $sdk_version..."
-        sed -i.bak "s/version: \"REPLICATED_SDK_VERSION\"/version: \"$sdk_version\"/g" "$chart_overlay_file"
-        rm -f "$chart_overlay_file.bak"
-        success "Harbor chart overlay updated with SDK version $sdk_version"
-    else
-        warn "Harbor chart overlay file not found at $chart_overlay_file"
-    fi
-}
 
 # Update manifest version references
 update_manifest_version() {
@@ -234,37 +220,17 @@ update_single_chart() {
     # Download the latest chart
     download_latest_chart "$chart_name" "$latest_version"
 
-    # Generate image overlay from the downloaded chart
     local chart_temp_dir="$TEMP_DIR/$chart_name/${CHART_NAMES[$chart_name]}"
-    log "Generating image overlay for $chart_name..."
-    "$SCRIPT_DIR/generate-overlay.sh" "$chart_name" "$chart_temp_dir"
 
-    # Update chart overlay with SDK version for Harbor
-    if [[ "$chart_name" == "harbor" ]]; then
-        update_harbor_chart_overlay "$sdk_version"
-
-        # Apply chart overlay to the downloaded chart
-        local chart_overlay_file="$OVERLAY_DIR/harbor/chart-overlay.yaml"
-        if [[ -f "$chart_overlay_file" ]]; then
-            log "Applying chart overlay to Harbor..."
-            yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
-                "$chart_temp_dir/Chart.yaml" \
-                "$chart_overlay_file" > "$chart_temp_dir/Chart.yaml.tmp"
-            mv "$chart_temp_dir/Chart.yaml.tmp" "$chart_temp_dir/Chart.yaml"
-            success "Chart overlay applied to Harbor"
-        fi
-    fi
-
-    # Apply template overlays
-    local template_overlay_dir="$OVERLAY_DIR/$chart_name/templates"
-    if [[ -d "$template_overlay_dir" ]]; then
-        log "Applying template overlays for $chart_name..."
-        cp -r "$template_overlay_dir/"* "$chart_temp_dir/templates/"
-        success "Template overlays applied for $chart_name"
-    fi
-
-    # Update the chart with overlays applied
+    # Update the chart
     update_chart "$chart_name"
+
+    # Warn that manual updates are needed
+    warn "Chart updated with upstream images. Manual updates needed in PR:"
+    warn "  1. Update image URLs to use images.alexparker.info proxy"
+    if [[ "$chart_name" == "harbor" ]]; then
+        warn "  2. Ensure SDK dependency is present in Chart.yaml"
+    fi
 
     # Update manifest references
     update_manifest_version "$chart_name" "$latest_version"
@@ -296,7 +262,7 @@ show_changes() {
     # Show file changes
     log "Modified files:"
     if command -v git &> /dev/null && git rev-parse --git-dir > /dev/null 2>&1; then
-        git -C "$PROJECT_ROOT" status --porcelain charts/ manifests/ chart-overlays/ || true
+        git -C "$PROJECT_ROOT" status --porcelain charts/ manifests/ || true
     else
         echo "Git not available - showing directory contents:"
         ls -la "$PROJECT_ROOT/charts/"
@@ -306,8 +272,10 @@ show_changes() {
     echo "================================================================"
     echo "Next steps:"
     echo "1. Review the changes carefully"
-    echo "2. Test the updated charts in a development environment"
-    echo "3. Commit and push the changes"
+    echo "2. MANUALLY update image URLs in charts/*/values.yaml to use images.alexparker.info proxy"
+    echo "3. Ensure Harbor Chart.yaml has Replicated SDK dependency"
+    echo "4. Test the updated charts in a development environment"
+    echo "5. Commit and push the changes"
     echo "================================================================"
 }
 

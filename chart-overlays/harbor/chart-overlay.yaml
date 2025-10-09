@@ -1,7 +1,0 @@
-# Harbor Chart.yaml Overlay
-# This file adds the Replicated SDK dependency to the Harbor chart.
-
-dependencies:
-  - name: replicated
-    repository: oci://registry.replicated.com/library
-    version: "1.8.0"
