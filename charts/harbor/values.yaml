@@ -356,7 +356,9 @@ ipFamily:
 imagePullPolicy: IfNotPresent
 
 # Use this set to assign a list of default pullSecrets
+# The replicated-pull-secret is automatically created when installed via Replicated
 imagePullSecrets:
+  - name: replicated-pull-secret
 #  - name: docker-registry-secret
 #  - name: internal-registry-secret
 
@@ -1093,3 +1095,11 @@ exporter:
   #   whenUnsatisfiable: DoNotSchedule
   cacheDuration: 23
   cacheCleanInterval: 14400
+
+# Replicated SDK configuration (subchart from dependencies)
+# This configures the Replicated SDK to use the proxy registry
+replicated:
+  image:
+    registry: images.alexparker.info
+  imagePullSecrets:
+    - name: replicated-pull-secret
