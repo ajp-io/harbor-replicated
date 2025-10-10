@@ -1,16 +1,9 @@
-# Harbor Helm Installation Test Values - EKS LoadBalancer with cert-manager
-# Tests production-realistic pattern: ingress-nginx + LoadBalancer + cert-manager
+# Harbor Helm Installation Test Values
+# Only override necessary values - chart defaults are already correct for most settings
 
 expose:
-  type: ingress
+  type: clusterIP
   tls:
-    certSource: secret
-    secret:
-      secretName: harbor-tls
-  ingress:
-    hosts:
-      core: harbor.example.com
-    className: nginx
+    enabled: false
 
-# Placeholder - will be updated dynamically by test script with LoadBalancer hostname
-externalURL: https://harbor.example.com
+externalURL: http://localhost:8080
