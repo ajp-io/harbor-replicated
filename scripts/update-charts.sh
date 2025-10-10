@@ -230,6 +230,8 @@ update_single_chart() {
     warn "  1. Update image URLs to use images.alexparker.info proxy"
     if [[ "$chart_name" == "harbor" ]]; then
         warn "  2. Ensure SDK dependency is present in Chart.yaml"
+        warn "  3. Add replicated-pull-secret.yaml template back to templates/ directory"
+        warn "  4. Add imagePullSecrets reference to replicated-pull-secret in values.yaml"
     fi
 
     # Update manifest references
@@ -274,8 +276,10 @@ show_changes() {
     echo "1. Review the changes carefully"
     echo "2. MANUALLY update image URLs in charts/*/values.yaml to use images.alexparker.info proxy"
     echo "3. Ensure Harbor Chart.yaml has Replicated SDK dependency"
-    echo "4. Test the updated charts in a development environment"
-    echo "5. Commit and push the changes"
+    echo "4. Add charts/harbor/templates/replicated-pull-secret.yaml template back"
+    echo "5. Add imagePullSecrets reference to replicated-pull-secret in charts/harbor/values.yaml"
+    echo "6. Test the updated charts in a development environment"
+    echo "7. Commit and push the changes"
     echo "================================================================"
 }
 
