@@ -1,0 +1,421 @@
+name: Stable Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'charts/**'
+      - 'chart-overlays/**'
+      - 'manifests/**'
+      - '.github/workflows/stable-release.yml'
+
+env:
+  REPLICATED_APP: harbor-enterprise
+  REPLICATED_API_ORIGIN: https://api.replicated.com/vendor
+
+jobs:
+  create-beta-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      release_version: ${{ steps.version.outputs.release_version }}
+      release_sequence: ${{ steps.create.outputs.release_sequence }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Install Replicated CLI
+        run: |
+          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+          | grep "browser_download_url.*linux_amd64.tar.gz" \
+          | cut -d : -f 2,3 \
+          | tr -d \" \
+          | wget -O replicated.tar.gz -qi -
+          tar xf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/
+
+      - name: Generate release version
+        id: version
+        run: |
+          # Use Harbor chart version + commit SHA for stable releases
+          HARBOR_VERSION=$(yq eval '.version' charts/harbor/Chart.yaml)
+          COMMIT_SHORT=$(git rev-parse --short HEAD)
+          VERSION="${HARBOR_VERSION}-${COMMIT_SHORT}"
+          echo "release_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated release version: $VERSION"
+
+      - name: Package Helm charts
+        run: |
+          # Clean any existing packages
+          rm -f manifests/*.tgz
+
+          # Update dependencies to fetch the Replicated SDK for Harbor chart
+          helm dependency update charts/harbor
+
+          # Apply overlays to charts before packaging
+          echo "Applying overlays to charts..."
+
+          # Function to apply committed overlay files
+          apply_overlay() {
+            local chart_name="$1"
+
+            echo "Applying overlays for $chart_name..."
+
+            # Apply values overlay if it exists (generated image transformations)
+            if [[ -f "chart-overlays/$chart_name/values-overlay.yaml" ]]; then
+              yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
+                "charts/$chart_name/values.yaml" \
+                "chart-overlays/$chart_name/values-overlay.yaml" > "/tmp/$chart_name-values.yaml"
+              mv "/tmp/$chart_name-values.yaml" "charts/$chart_name/values.yaml"
+              echo "  ✅ Applied values overlay for $chart_name"
+            fi
+
+
+            # If no overlays were found
+            if [[ ! -f "chart-overlays/$chart_name/values-overlay.yaml" ]]; then
+              echo "  ℹ️  No overlays found for $chart_name"
+            fi
+          }
+
+          # Apply overlays for each chart
+          apply_overlay "harbor"
+          apply_overlay "ingress-nginx"
+          apply_overlay "cert-manager"
+
+          # Package all three charts
+          echo "Packaging Harbor chart..."
+          helm package charts/harbor -d manifests -u
+
+          echo "Packaging nginx-ingress chart..."
+          helm package charts/ingress-nginx -d manifests -u
+
+          echo "Packaging cert-manager chart..."
+          helm package charts/cert-manager -d manifests -u
+
+          echo "Packaged charts:"
+          ls -la manifests/*.tgz
+
+          # Clean up downloaded dependencies
+          rm -rf charts/harbor/charts/
+
+      - name: Create release and promote to Beta
+        id: create
+        run: |
+          # Create release and promote to Beta channel
+          echo "Creating release version ${{ steps.version.outputs.release_version }} and promoting to Beta..."
+
+          RELEASE_OUTPUT=$(replicated release create \
+            --lint \
+            --yaml-dir ./manifests \
+            --promote Beta \
+            --version "${{ steps.version.outputs.release_version }}")
+
+          echo "Release output:"
+          echo "$RELEASE_OUTPUT"
+
+          # Extract sequence number from output
+          # Output format is typically: "SEQUENCE: 61" or similar
+          RELEASE_SEQUENCE=$(echo "$RELEASE_OUTPUT" | grep -i "sequence" | grep -oE '[0-9]+' | head -1)
+
+          if [[ -z "$RELEASE_SEQUENCE" ]]; then
+            echo "❌ Failed to extract release sequence from output"
+            echo "Full output was:"
+            echo "$RELEASE_OUTPUT"
+            exit 1
+          fi
+
+          echo "✅ Created release sequence: $RELEASE_SEQUENCE"
+          echo "✅ Promoted to Beta channel"
+          echo "release_sequence=$RELEASE_SEQUENCE" >> $GITHUB_OUTPUT
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ env.REPLICATED_APP }}
+
+      - name: Clean up build artifacts
+        if: always()
+        run: |
+          rm -f manifests/*.tgz
+          echo "Cleaned up build artifacts"
+
+  test-beta-embedded-install:
+    needs: create-beta-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Replicated CLI
+        run: |
+          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+          | grep "browser_download_url.*linux_amd64.tar.gz" \
+          | cut -d : -f 2,3 \
+          | tr -d \" \
+          | wget -O replicated.tar.gz -qi -
+          tar xf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/
+
+      - name: Create test VM and expose ingress port
+        id: vm
+        run: |
+          # Create VM for testing with unique name
+          COMMIT_SHORT=$(git rev-parse --short HEAD)
+          VM_NAME="stable-beta-${{ github.run_number }}-${COMMIT_SHORT}"
+          echo "Creating VM for Beta testing: $VM_NAME (waiting up to 10 minutes)..."
+          VM_OUTPUT=$(replicated vm create \
+            --distribution ubuntu \
+            --version 22.04 \
+            --instance-type r1.small \
+            --name "$VM_NAME" \
+            --wait 10m \
+            --output json)
+
+          echo "VM creation output:"
+          echo "$VM_OUTPUT"
+
+          # Try to extract VM ID - handle both object and array responses
+          VM_ID=$(echo "$VM_OUTPUT" | jq -r 'if type == "array" then .[0].id else .id end')
+
+          if [[ -z "$VM_ID" || "$VM_ID" == "null" ]]; then
+            echo "❌ Failed to get VM ID from output"
+            exit 1
+          fi
+
+          echo "✅ VM created and ready: $VM_ID"
+
+          # Expose port 80 for HTTP (redirects to HTTPS)
+          echo "Exposing port 80 for HTTP redirects on VM: $VM_ID"
+          EXPOSE_HTTP_OUTPUT=$(replicated vm port expose $VM_ID --port 80 --protocol http --output json)
+          echo "HTTP port expose output:"
+          echo "$EXPOSE_HTTP_OUTPUT"
+
+          # Expose port 443 for HTTPS
+          echo "Exposing port 443 for HTTPS on VM: $VM_ID"
+          EXPOSE_HTTPS_OUTPUT=$(replicated vm port expose $VM_ID --port 443 --protocol https --output json)
+          echo "HTTPS port expose output:"
+          echo "$EXPOSE_HTTPS_OUTPUT"
+
+          # Expose port 30000 for KOTS Admin Console
+          echo "Exposing port 30000 for KOTS Admin Console on VM: $VM_ID"
+          EXPOSE_ADMIN_OUTPUT=$(replicated vm port expose $VM_ID --port 30000 --protocol http --output json)
+          echo "Admin Console port expose output:"
+          echo "$EXPOSE_ADMIN_OUTPUT"
+
+          HOSTNAME=$(echo "$EXPOSE_HTTPS_OUTPUT" | jq -r '.hostname')
+          ADMIN_HOSTNAME=$(echo "$EXPOSE_ADMIN_OUTPUT" | jq -r '.hostname')
+
+          if [[ -z "$HOSTNAME" || "$HOSTNAME" == "null" ]]; then
+            echo "❌ Failed to get hostname from HTTPS port expose output"
+            exit 1
+          fi
+
+          if [[ -z "$ADMIN_HOSTNAME" || "$ADMIN_HOSTNAME" == "null" ]]; then
+            echo "❌ Failed to get admin hostname from port 30000 expose output"
+            exit 1
+          fi
+
+          echo "✅ Ports 80 (HTTP), 443 (HTTPS), and 30000 (Admin Console) exposed"
+          echo "✅ Harbor will be accessible at: https://$HOSTNAME"
+          echo "✅ KOTS Admin Console will be accessible at: http://$ADMIN_HOSTNAME:30000"
+
+          echo "vm_id=$VM_ID" >> $GITHUB_OUTPUT
+          echo "hostname=$HOSTNAME" >> $GITHUB_OUTPUT
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ env.REPLICATED_APP }}
+
+      - name: Setup SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+
+      - name: Setup SSH known hosts and transfer files
+        run: |
+          # Setup SSH known hosts
+          mkdir -p ~/.ssh
+          ssh-keyscan replicatedvm.com >> ~/.ssh/known_hosts
+
+          # Get SCP endpoint for file transfers
+          SCP_ENDPOINT=$(replicated vm scp-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          echo "SCP endpoint: $SCP_ENDPOINT"
+
+          # Make scripts executable
+          chmod +x scripts/test-embedded-install.sh
+
+          # Transfer test files to VM home directory first
+          scp -O -o StrictHostKeyChecking=no test/config-values.yaml $SCP_ENDPOINT/config-values.yaml
+          scp -O -o StrictHostKeyChecking=no scripts/test-embedded-install.sh $SCP_ENDPOINT/test.sh
+
+          # Get SSH endpoint and move files to /tmp
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'sudo mv config-values.yaml /tmp/ && sudo mv test.sh /tmp/ && ls -la /tmp/'
+
+          echo "Files transferred successfully"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Run embedded cluster installation test on Beta
+        id: test
+        run: |
+          # Get SSH endpoint for connection
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
+          echo "SSH endpoint: $SSH_ENDPOINT"
+
+          # Run the test script on the VM with Beta channel
+          echo "Running embedded cluster installation test for Beta version: ${{ needs.create-beta-release.outputs.release_version }}"
+          echo "Harbor will be accessible at: https://${{ steps.vm.outputs.hostname }}"
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'chmod +x /tmp/test.sh && sudo TEST_VERSION="${{ needs.create-beta-release.outputs.release_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" CHANNEL="beta" /tmp/test.sh'
+
+          echo "Test completed successfully!"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Cleanup VM
+        if: success()
+        run: |
+          if [[ -n "${{ steps.vm.outputs.vm_id }}" ]]; then
+            echo "✅ Test passed! Cleaning up VM: ${{ steps.vm.outputs.vm_id }}"
+            replicated vm rm ${{ steps.vm.outputs.vm_id }} || true
+            echo "VM cleanup completed"
+          fi
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+
+  test-beta-kots-install:
+    needs: create-beta-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Replicated CLI
+        run: |
+          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+          | grep "browser_download_url.*linux_amd64.tar.gz" \
+          | cut -d : -f 2,3 \
+          | tr -d \" \
+          | wget -O replicated.tar.gz -qi -
+          tar xf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/
+
+      - name: Create Kind cluster
+        id: cluster
+        run: |
+          # Create Kind cluster for KOTS testing
+          COMMIT_SHORT=$(git rev-parse --short HEAD)
+          CLUSTER_NAME="stable-beta-kots-${{ github.run_number }}-${COMMIT_SHORT}"
+          echo "Creating Kind cluster for Beta KOTS testing: $CLUSTER_NAME (waiting up to 10 minutes)..."
+
+          CLUSTER_OUTPUT=$(replicated cluster create \
+            --distribution kind \
+            --version 1.34 \
+            --instance-type r1.small \
+            --name "$CLUSTER_NAME" \
+            --wait 10m \
+            --output json)
+
+          echo "Cluster creation output:"
+          echo "$CLUSTER_OUTPUT"
+
+          # Extract cluster ID from output
+          CLUSTER_ID=$(echo "$CLUSTER_OUTPUT" | jq -r '.id // empty')
+
+          if [[ -z "$CLUSTER_ID" || "$CLUSTER_ID" == "null" ]]; then
+            echo "❌ Failed to get cluster ID from output"
+            exit 1
+          fi
+
+          echo "cluster_id=$CLUSTER_ID" >> $GITHUB_OUTPUT
+          echo "✅ Kind cluster created and ready: $CLUSTER_ID"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Setup kubectl and run KOTS install on Beta
+        run: |
+          # Set up kubectl using replicated cluster kubeconfig
+          echo "Setting up kubectl with cluster kubeconfig..."
+          echo "Cluster ID: ${{ steps.cluster.outputs.cluster_id }}"
+
+          # The replicated cluster kubeconfig command updates ~/.kube/config automatically
+          # and sets the current context, so we don't need to manage a separate kubeconfig file
+          replicated cluster kubeconfig ${{ steps.cluster.outputs.cluster_id }}
+
+          # Verify kubectl access (should now use the updated ~/.kube/config)
+          echo "Verifying kubectl access..."
+          kubectl get nodes
+          kubectl get namespaces
+
+          # Make script executable and transfer config
+          chmod +x scripts/test-kots-install.sh
+          cp test/config-values.yaml /tmp/config-values.yaml
+
+          # Run KOTS installation test on Beta channel
+          echo "Running KOTS installation test for Beta version: ${{ needs.create-beta-release.outputs.release_version }}"
+          TEST_VERSION="${{ needs.create-beta-release.outputs.release_version }}" \
+          CHANNEL="beta" \
+          REPLICATED_API_TOKEN="${{ secrets.REPLICATED_API_TOKEN }}" \
+          ./scripts/test-kots-install.sh
+
+          echo "KOTS test completed successfully!"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Cleanup Kind cluster
+        if: success()
+        run: |
+          if [[ -n "${{ steps.cluster.outputs.cluster_id }}" ]]; then
+            echo "✅ Test passed! Cleaning up Kind cluster: ${{ steps.cluster.outputs.cluster_id }}"
+            replicated cluster rm ${{ steps.cluster.outputs.cluster_id }} || true
+            echo "Cluster cleanup completed"
+          fi
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+  promote-to-stable:
+    needs: [create-beta-release, test-beta-embedded-install, test-beta-kots-install]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Replicated CLI
+        run: |
+          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+          | grep "browser_download_url.*linux_amd64.tar.gz" \
+          | cut -d : -f 2,3 \
+          | tr -d \" \
+          | wget -O replicated.tar.gz -qi -
+          tar xf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/
+
+      - name: Promote release to Stable
+        run: |
+          echo "Promoting release ${{ needs.create-beta-release.outputs.release_sequence }} to Stable channel..."
+          echo "Version: ${{ needs.create-beta-release.outputs.release_version }}"
+
+          replicated release promote \
+            ${{ needs.create-beta-release.outputs.release_sequence }} \
+            Stable
+
+          echo "✅ Release ${{ needs.create-beta-release.outputs.release_version }} (sequence ${{ needs.create-beta-release.outputs.release_sequence }}) promoted to Stable!"
+
+          # Verify promotion
+          echo "Verifying channels..."
+          replicated channel ls
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ env.REPLICATED_APP }}
