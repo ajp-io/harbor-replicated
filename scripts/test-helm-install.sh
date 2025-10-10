@@ -70,7 +70,7 @@ helm install cert-manager jetstack/cert-manager \
   --version v1.16.2 \
   --namespace ${CERT_MANAGER_NAMESPACE} \
   --create-namespace \
-  --set crds.enabled=true \
+  --values test/cert-manager-values.yaml \
   --wait \
   --timeout 5m
 
@@ -101,10 +101,7 @@ helm install ingress-nginx ingress-nginx/ingress-nginx \
   --version 4.11.3 \
   --namespace ${INGRESS_NGINX_NAMESPACE} \
   --create-namespace \
-  --set controller.service.type=LoadBalancer \
-  --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"="nlb" \
-  --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"="internet-facing" \
-  --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-cross-zone-load-balancing-enabled"="true" \
+  --values test/ingress-nginx-values.yaml \
   --wait \
   --timeout 10m
 
@@ -164,24 +161,13 @@ kubectl wait certificate/harbor-tls --for=condition=Ready -n ${NAMESPACE} --time
 
 echo "✅ Certificate issued and ready"
 
-# Create Harbor values with actual LoadBalancer hostname
-echo "Creating Harbor values with LoadBalancer hostname..."
-cat > /tmp/harbor-values.yaml <<EOF
-expose:
-  type: ingress
-  tls:
-    certSource: secret
-    secret:
-      secretName: harbor-tls
-  ingress:
-    hosts:
-      core: ${LB_HOSTNAME}
-    className: nginx
+# Prepare Harbor values with actual LoadBalancer hostname
+echo "Preparing Harbor values with LoadBalancer hostname..."
+cp test/harbor-values.yaml /tmp/harbor-values.yaml
+yq eval -i ".expose.ingress.hosts.core = \"${LB_HOSTNAME}\"" /tmp/harbor-values.yaml
+yq eval -i ".externalURL = \"https://${LB_HOSTNAME}\"" /tmp/harbor-values.yaml
 
-externalURL: https://${LB_HOSTNAME}
-EOF
-
-echo "✅ Harbor values created"
+echo "✅ Harbor values prepared with dynamic hostname"
 
 # Install Harbor from Replicated registry
 echo "Installing Harbor from Replicated registry..."
