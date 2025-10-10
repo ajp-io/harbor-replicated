@@ -633,6 +633,7 @@ jobs:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
   test-helm-install:
+  test-helm:
     needs: create-release
     runs-on: ubuntu-latest
     timeout-minutes: 30
