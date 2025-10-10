@@ -48,7 +48,7 @@ echo "✅ License ID retrieved"
 
 # Login to Replicated registry
 echo "Logging in to Replicated registry..."
-echo "${LICENSE_ID}" | helm registry login registry.replicated.com \
+echo "${LICENSE_ID}" | helm registry login charts.alexparker.info \
     --username "${CUSTOMER_EMAIL}" \
     --password-stdin
 
@@ -75,12 +75,12 @@ echo "✅ Harbor chart version: ${CHART_VERSION}"
 
 # Install Harbor via Helm from Replicated registry
 echo "Installing Harbor from Replicated registry..."
-echo "Chart: oci://registry.replicated.com/harbor-enterprise/${CHANNEL}/harbor"
+echo "Chart: oci://charts.alexparker.info/harbor-enterprise/${CHANNEL}/harbor"
 echo "Version: ${CHART_VERSION}"
 echo "Values: test/helm-values.yaml"
 
 helm install harbor \
-  oci://registry.replicated.com/harbor-enterprise/${CHANNEL}/harbor \
+  oci://charts.alexparker.info/harbor-enterprise/${CHANNEL}/harbor \
   --version ${CHART_VERSION} \
   --namespace ${NAMESPACE} \
   --create-namespace \
