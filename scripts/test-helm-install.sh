@@ -25,7 +25,7 @@ CHANNEL="${CHANNEL:-unstable}"
 echo "Using channel: ${CHANNEL}"
 echo "Installing Helm chart for version: ${TEST_VERSION}"
 
-# Download license
+# Download license to get customer email and license ID
 echo "Downloading license for customer: ${CUSTOMER_NAME}..."
 replicated customer download-license --customer "${CUSTOMER_NAME}" > /tmp/license.yaml
 
