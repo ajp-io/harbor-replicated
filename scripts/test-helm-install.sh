@@ -62,15 +62,26 @@ fi
 
 echo "✅ Test values file verified"
 
+# Get Harbor chart version from Chart.yaml
+echo "Reading Harbor chart version from Chart.yaml..."
+CHART_VERSION=$(yq eval '.version' charts/harbor/Chart.yaml)
+
+if [[ -z "$CHART_VERSION" || "$CHART_VERSION" == "null" ]]; then
+    echo "❌ Failed to read chart version from charts/harbor/Chart.yaml"
+    exit 1
+fi
+
+echo "✅ Harbor chart version: ${CHART_VERSION}"
+
 # Install Harbor via Helm from Replicated registry
 echo "Installing Harbor from Replicated registry..."
 echo "Chart: oci://registry.replicated.com/harbor-enterprise/${CHANNEL}/harbor"
-echo "Version: 1.18.0"  # HARDCODED - Harbor chart version from Chart.yaml
+echo "Version: ${CHART_VERSION}"
 echo "Values: test/helm-values.yaml"
 
 helm install harbor \
   oci://registry.replicated.com/harbor-enterprise/${CHANNEL}/harbor \
-  --version 1.18.0 \
+  --version ${CHART_VERSION} \
   --namespace ${NAMESPACE} \
   --create-namespace \
   --values test/helm-values.yaml \
