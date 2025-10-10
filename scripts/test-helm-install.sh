@@ -25,24 +25,25 @@ CHANNEL="${CHANNEL:-unstable}"
 echo "Using channel: ${CHANNEL}"
 echo "Installing Helm chart for version: ${TEST_VERSION}"
 
-# Get customer details using inspect (cleaner than ls + filter)
-echo "Getting customer credentials for: ${CUSTOMER_NAME}..."
-CUSTOMER_JSON=$(replicated customer inspect --customer "${CUSTOMER_NAME}" --output json)
+# Download license to get customer email and license ID
+echo "Downloading license for customer: ${CUSTOMER_NAME}..."
+replicated customer download-license --customer "${CUSTOMER_NAME}" > /tmp/license.yaml
 
-CUSTOMER_EMAIL=$(echo "$CUSTOMER_JSON" | jq -r '.email')
-LICENSE_ID=$(echo "$CUSTOMER_JSON" | jq -r '.license_id')
+CUSTOMER_EMAIL=$(yq eval '.spec.customerEmail' /tmp/license.yaml)
+LICENSE_ID=$(yq eval '.spec.licenseID' /tmp/license.yaml)
 
 if [[ -z "$CUSTOMER_EMAIL" || "$CUSTOMER_EMAIL" == "null" ]]; then
-    echo "❌ Failed to get customer email for ${CUSTOMER_NAME}"
+    echo "❌ Failed to get customer email from license file"
     exit 1
 fi
 
 if [[ -z "$LICENSE_ID" || "$LICENSE_ID" == "null" ]]; then
-    echo "❌ Failed to get license ID for ${CUSTOMER_NAME}"
+    echo "❌ Failed to get license ID from license file"
     exit 1
 fi
 
 echo "✅ Customer email: ${CUSTOMER_EMAIL}"
+echo "✅ License ID retrieved"
 # DO NOT output LICENSE_ID - it's sensitive
 
 # Login to Replicated registry
