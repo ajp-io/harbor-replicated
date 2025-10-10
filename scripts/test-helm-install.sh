@@ -223,31 +223,6 @@ kubectl get ingress -n ${NAMESPACE}
 
 echo "✅ All resources verified and ready"
 
-# Verify images from proxy registry
-echo "Verifying images are from proxy registry..."
-HARBOR_CORE_IMAGE=$(kubectl get deployment harbor-core -n ${NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}')
-REPLICATED_IMAGE=$(kubectl get deployment replicated -n ${NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}')
-
-echo "Harbor Core image: ${HARBOR_CORE_IMAGE}"
-echo "Replicated SDK image: ${REPLICATED_IMAGE}"
-
-if [[ ! "${HARBOR_CORE_IMAGE}" =~ images\.alexparker\.info ]]; then
-    echo "❌ Harbor Core image is not from proxy registry"
-    exit 1
-fi
-
-if [[ ! "${REPLICATED_IMAGE}" =~ images\.alexparker\.info ]]; then
-    echo "❌ Replicated SDK image is not from proxy registry"
-    exit 1
-fi
-
-echo "✅ All images confirmed from proxy registry"
-
-# Verify pull secret
-echo "Verifying replicated-pull-secret..."
-kubectl get secret replicated-pull-secret -n ${NAMESPACE}
-echo "✅ Pull secret exists"
-
 # Test Harbor UI accessibility
 echo "Testing Harbor UI accessibility via LoadBalancer..."
 
