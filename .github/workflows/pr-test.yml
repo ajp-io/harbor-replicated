@@ -96,7 +96,7 @@ jobs:
           rm -f manifests/*.tgz
           echo "Cleaned up build artifacts"
 
-  test-embedded-cluster:
+  test-embedded-cluster-install:
     needs: create-release
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -240,7 +240,7 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
-  test-embedded-cluster-airgap:
+  test-embedded-cluster-airgap-install:
     if: false  # Disabled until air gap testing is fully working
     needs: create-release
     runs-on: ubuntu-latest
@@ -541,7 +541,7 @@ jobs:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
 
-  test-kots:
+  test-kots-install:
     needs: create-release
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -632,7 +632,7 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
-  test-helm:
+  test-helm-install:
     needs: create-release
     runs-on: ubuntu-latest
     timeout-minutes: 30
