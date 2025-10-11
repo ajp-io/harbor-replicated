@@ -1,9 +1,0 @@
-# Harbor Helm Installation Test Values
-# Only override necessary values - chart defaults are already correct for most settings
-
-expose:
-  type: clusterIP
-  tls:
-    enabled: false
-
-externalURL: http://localhost:8080

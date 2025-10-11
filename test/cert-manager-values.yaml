@@ -1,0 +1,4 @@
+# cert-manager values for testing
+# Installs CRDs directly with the chart for simpler setup
+crds:
+  enabled: true

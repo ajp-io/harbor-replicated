@@ -655,20 +655,21 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Create Kind cluster for Helm testing
+      - name: Create EKS cluster for Helm testing
         id: cluster
         run: |
-          # Create Kind cluster for Helm testing
+          # Create EKS cluster for Helm testing
           COMMIT_SHORT=$(git rev-parse --short HEAD)
           CLUSTER_NAME="helm-pr${{ github.event.pull_request.number }}-r${{ github.run_number }}-${COMMIT_SHORT}"
-          echo "Creating Kind cluster for Helm testing: $CLUSTER_NAME (waiting up to 10 minutes)..."
+          echo "Creating EKS cluster for Helm testing: $CLUSTER_NAME (waiting up to 20 minutes)..."
 
           CLUSTER_OUTPUT=$(replicated cluster create \
-            --distribution kind \
+            --distribution eks \
             --version 1.33 \
-            --instance-type r1.small \
+            --instance-type m5.xlarge \
+            --nodes 1 \
             --name "$CLUSTER_NAME" \
-            --wait 10m \
+            --wait 20m \
             --output json)
 
           echo "Cluster creation output:"
@@ -683,11 +684,11 @@ jobs:
           fi
 
           echo "cluster_id=$CLUSTER_ID" >> $GITHUB_OUTPUT
-          echo "✅ Kind cluster created and ready: $CLUSTER_ID"
+          echo "✅ EKS cluster created and ready: $CLUSTER_ID"
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
-      - name: Setup kubectl and run Helm install test
+      - name: Setup kubectl and run Helm install test with LoadBalancer
         run: |
           # Set up kubectl using replicated cluster kubeconfig
           echo "Setting up kubectl with cluster kubeconfig..."
@@ -701,11 +702,16 @@ jobs:
           kubectl get nodes
           kubectl get namespaces
 
+          # Set gp2 as default StorageClass for EKS
+          echo "Setting gp2 as default StorageClass for EKS..."
+          kubectl patch storageclass gp2 -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+
           # Make script executable
           chmod +x scripts/test-helm-install.sh
 
           # Run Helm installation test
           echo "Running Helm installation test for version: ${{ needs.create-release.outputs.test_version }}"
+          echo "Testing with ingress-nginx LoadBalancer and cert-manager on EKS"
           TEST_VERSION="${{ needs.create-release.outputs.test_version }}" \
           CHANNEL="unstable" \
           REPLICATED_API_TOKEN="${{ secrets.REPLICATED_API_TOKEN }}" \
@@ -715,11 +721,11 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
-      - name: Cleanup Kind cluster
+      - name: Cleanup EKS cluster
         if: success()
         run: |
           if [[ -n "${{ steps.cluster.outputs.cluster_id }}" ]]; then
-            echo "✅ Test passed! Cleaning up Kind cluster: ${{ steps.cluster.outputs.cluster_id }}"
+            echo "✅ Test passed! Cleaning up EKS cluster: ${{ steps.cluster.outputs.cluster_id }}"
             replicated cluster rm ${{ steps.cluster.outputs.cluster_id }} || true
             echo "Cluster cleanup completed"
           fi
