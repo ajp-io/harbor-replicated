@@ -71,11 +71,8 @@ helm install cert-manager jetstack/cert-manager \
 
 echo "✅ cert-manager installed"
 
-# Wait for cert-manager webhooks to be ready
-echo "Waiting for cert-manager webhooks to be ready..."
-kubectl wait deployment/cert-manager-webhook --for=condition=available -n ${CERT_MANAGER_NAMESPACE} --timeout=300s
-
-echo "✅ cert-manager webhooks ready"
+# Verify cert-manager installation (deployments + endpoints)
+verify_cert_manager_installation "kubectl" "${CERT_MANAGER_NAMESPACE}"
 
 # Create self-signed ClusterIssuer
 echo "Creating self-signed ClusterIssuer..."
@@ -101,6 +98,9 @@ helm install ingress-nginx ingress-nginx/ingress-nginx \
   --timeout 10m
 
 echo "✅ ingress-nginx installed"
+
+# Verify ingress-nginx installation (deployment + endpoints)
+verify_nginx_ingress_installation "kubectl" "${INGRESS_NGINX_NAMESPACE}"
 
 # Wait for LoadBalancer hostname
 echo "Waiting for LoadBalancer to be provisioned..."
@@ -184,9 +184,6 @@ kubectl get pods -n ${NAMESPACE}
 
 # Verify all Harbor resources (adds endpoint checks that Helm test was missing)
 verify_harbor_installation "kubectl" "${NAMESPACE}"
-
-# Verify ingress-nginx is ready (adds endpoint checks for consistency)
-verify_nginx_ingress_installation "kubectl" "${INGRESS_NGINX_NAMESPACE}"
 
 # Verify Ingress created
 echo "Verifying Harbor ingress..."
