@@ -64,18 +64,14 @@ test_footer() {
 # Arguments:
 #   $1: kubectl command (default: "kubectl")
 #   $2: namespace (default: "harbor-enterprise")
-#   $3: check endpoints (default: "true")
-#   $4: show status (default: "true")
 # Returns:
 #   0 on success
 # Example:
 #   verify_harbor_installation "kubectl" "harbor-enterprise"
-#   verify_harbor_installation "$KUBECTL" "kotsadm" false  # Skip endpoints
+#   verify_harbor_installation "$KUBECTL" "kotsadm"
 verify_harbor_installation() {
     local kubectl_cmd="${1:-kubectl}"
     local namespace="${2:-harbor-enterprise}"
-    local check_endpoints="${3:-true}"
-    local show_status="${4:-true}"
 
     echo "Verifying Harbor installation..."
 
@@ -83,14 +79,10 @@ verify_harbor_installation() {
     wait_for_harbor_resources "$kubectl_cmd" "$namespace"
 
     # Check service endpoints
-    if [[ "$check_endpoints" == "true" ]]; then
-        wait_for_harbor_endpoints "$kubectl_cmd" "$namespace"
-    fi
+    wait_for_harbor_endpoints "$kubectl_cmd" "$namespace"
 
     # Display final status
-    if [[ "$show_status" == "true" ]]; then
-        display_harbor_status "$kubectl_cmd" "$namespace"
-    fi
+    display_harbor_status "$kubectl_cmd" "$namespace"
 
     echo "✅ Harbor installation verified!"
 }
@@ -99,7 +91,6 @@ verify_harbor_installation() {
 # Arguments:
 #   $1: kubectl command (default: "kubectl")
 #   $2: namespace (default: "cert-manager")
-#   $3: check endpoints (default: "true")
 # Returns:
 #   0 on success
 # Example:
@@ -108,7 +99,6 @@ verify_harbor_installation() {
 verify_cert_manager_installation() {
     local kubectl_cmd="${1:-kubectl}"
     local namespace="${2:-cert-manager}"
-    local check_endpoints="${3:-true}"
 
     echo "Verifying cert-manager installation..."
 
@@ -116,9 +106,7 @@ verify_cert_manager_installation() {
     wait_for_cert_manager "$kubectl_cmd" "$namespace"
 
     # Check service endpoints
-    if [[ "$check_endpoints" == "true" ]]; then
-        wait_for_cert_manager_endpoints "$kubectl_cmd" "$namespace"
-    fi
+    wait_for_cert_manager_endpoints "$kubectl_cmd" "$namespace"
 
     echo "✅ cert-manager installation verified!"
 }
@@ -127,7 +115,6 @@ verify_cert_manager_installation() {
 # Arguments:
 #   $1: kubectl command (default: "kubectl")
 #   $2: namespace (default: "ingress-nginx")
-#   $3: check endpoints (default: "true")
 # Returns:
 #   0 on success
 # Example:
@@ -136,7 +123,6 @@ verify_cert_manager_installation() {
 verify_nginx_ingress_installation() {
     local kubectl_cmd="${1:-kubectl}"
     local namespace="${2:-ingress-nginx}"
-    local check_endpoints="${3:-true}"
 
     echo "Verifying NGINX Ingress Controller installation..."
 
@@ -144,9 +130,7 @@ verify_nginx_ingress_installation() {
     wait_for_nginx_ingress "$kubectl_cmd" "$namespace"
 
     # Check service endpoints
-    if [[ "$check_endpoints" == "true" ]]; then
-        wait_for_nginx_ingress_endpoints "$kubectl_cmd" "$namespace"
-    fi
+    wait_for_nginx_ingress_endpoints "$kubectl_cmd" "$namespace"
 
     echo "✅ NGINX Ingress Controller installation verified!"
 }
