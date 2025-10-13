@@ -201,13 +201,14 @@ jobs:
           # Make scripts executable
           chmod +x scripts/test-embedded-install.sh
 
-          # Transfer test files to VM home directory first
+          # Transfer test files and library to VM home directory first
           scp -O -o StrictHostKeyChecking=no test/config-values.yaml $SCP_ENDPOINT/config-values.yaml
           scp -O -o StrictHostKeyChecking=no scripts/test-embedded-install.sh $SCP_ENDPOINT/test.sh
+          scp -O -o StrictHostKeyChecking=no -r scripts/lib $SCP_ENDPOINT/lib
 
           # Get SSH endpoint and move files to /tmp
           SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
-          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'sudo mv config-values.yaml /tmp/ && sudo mv test.sh /tmp/ && ls -la /tmp/'
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'sudo mv config-values.yaml /tmp/ && sudo mv test.sh /tmp/ && sudo mv lib /tmp/ && ls -la /tmp/'
 
           echo "Files transferred successfully"
         env:
@@ -346,13 +347,14 @@ jobs:
           # Make scripts executable
           chmod +x scripts/test-embedded-airgap-install.sh
 
-          # Transfer test files to VM home directory first
+          # Transfer test files and library to VM home directory first
           scp -O -o StrictHostKeyChecking=no test/config-values.yaml $SCP_ENDPOINT/config-values.yaml
           scp -O -o StrictHostKeyChecking=no scripts/test-embedded-airgap-install.sh $SCP_ENDPOINT/test-airgap.sh
+          scp -O -o StrictHostKeyChecking=no -r scripts/lib $SCP_ENDPOINT/lib
 
           # Get SSH endpoint and move files to /tmp
           SSH_ENDPOINT=$(replicated vm ssh-endpoint ${{ steps.vm.outputs.vm_id }} --username ajp-io)
-          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'sudo mv config-values.yaml /tmp/ && sudo mv test-airgap.sh /tmp/ && ls -la /tmp/'
+          ssh -o StrictHostKeyChecking=no $SSH_ENDPOINT 'sudo mv config-values.yaml /tmp/ && sudo mv test-airgap.sh /tmp/ && sudo mv lib /tmp/ && ls -la /tmp/'
 
           echo "Files transferred successfully"
         env:
