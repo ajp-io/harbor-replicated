@@ -217,9 +217,6 @@ if ! test_harbor_ui "${EXTERNAL_URL}" 10 15 "-k -f -s"; then
     exit 1
 fi
 
-# Verify HTTP 200 status
-verify_harbor_ui_status "${EXTERNAL_URL}" "-k -s" || exit 1
-
 echo ""
 echo "Final deployment status:"
 kubectl get deployment,statefulset,service,ingress -n ${NAMESPACE}

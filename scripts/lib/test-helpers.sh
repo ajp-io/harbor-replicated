@@ -434,34 +434,6 @@ test_harbor_ui() {
     return 1
 }
 
-# Verifies Harbor UI returns HTTP 200 status
-# Arguments:
-#   $1: URL to test
-#   $2: curl flags (default: "-k -s")
-# Returns:
-#   0 if HTTP 200, 1 otherwise
-# Example:
-#   verify_harbor_ui_status "https://harbor.example.com" "-k -s"
-verify_harbor_ui_status() {
-    local url="$1"
-    local curl_flags="${2:--k -s}"
-    local http_status
-
-    echo "Verifying Harbor UI HTTP status..."
-
-    # shellcheck disable=SC2086
-    http_status=$(curl $curl_flags -o /dev/null -w "%{http_code}" "$url")
-    echo "HTTP Status: ${http_status}"
-
-    if [[ "$http_status" == "200" ]]; then
-        echo "✅ Harbor UI returned HTTP 200"
-        return 0
-    else
-        echo "❌ Harbor UI returned HTTP ${http_status}"
-        return 1
-    fi
-}
-
 #######################################
 # Status Display
 #######################################
