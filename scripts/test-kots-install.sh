@@ -70,10 +70,10 @@ KOTS_PID=$!
 
 # Wait for port forward to establish
 echo "Waiting for admin console port forward to establish..."
-sleep 15
+sleep 5
 
-# Test UI accessibility using helper
-if test_harbor_ui "http://localhost:30001" 1 0 "-f -s"; then
+# Test UI accessibility using helper (retry with short intervals for robustness)
+if test_harbor_ui "http://localhost:30001" 5 3 "-f -s"; then
     echo "✅ Harbor UI is accessible through KOTS admin console"
 else
     echo "❌ Harbor UI not accessible through KOTS admin console"
