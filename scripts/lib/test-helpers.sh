@@ -108,6 +108,12 @@ verify_cert_manager_installation() {
     # Check service endpoints
     wait_for_cert_manager_endpoints "$kubectl_cmd" "$namespace"
 
+    # Display final status
+    echo ""
+    echo "cert-manager status:"
+    $kubectl_cmd get deployment,service -n "$namespace" -l app.kubernetes.io/name=cert-manager || true
+    echo ""
+
     echo "✅ cert-manager installation verified!"
 }
 
@@ -132,6 +138,12 @@ verify_nginx_ingress_installation() {
     # Check service endpoints
     wait_for_nginx_ingress_endpoints "$kubectl_cmd" "$namespace"
 
+    # Display final status
+    echo ""
+    echo "NGINX Ingress Controller status:"
+    $kubectl_cmd get deployment,service -n "$namespace" -l app.kubernetes.io/name=ingress-nginx || true
+    echo ""
+
     echo "✅ NGINX Ingress Controller installation verified!"
 }
 
@@ -144,7 +156,6 @@ verify_nginx_ingress_installation() {
 # Arguments:
 #   $1: kubectl command (default: "kubectl")
 #   $2: namespace (default: "harbor-enterprise")
-#   $3: include Replicated SDK check (default: "true")
 # Returns:
 #   0 on success
 # Example:
@@ -153,7 +164,6 @@ verify_nginx_ingress_installation() {
 wait_for_harbor_resources() {
     local kubectl_cmd="${1:-kubectl}"
     local namespace="${2:-harbor-enterprise}"
-    local include_sdk="${3:-true}"
 
     echo "Waiting for Harbor resources in dependency order..."
 
@@ -203,15 +213,13 @@ wait_for_harbor_resources() {
         -n "$namespace" \
         --timeout=300s
 
-    # Stage 3: Replicated SDK (optional)
-    if [[ "$include_sdk" == "true" ]]; then
-        echo "Stage 3: Waiting for Replicated SDK..."
-        echo "  Waiting for Replicated SDK deployment to be available..."
-        $kubectl_cmd wait deployment/replicated \
-            --for=condition=available \
-            -n "$namespace" \
-            --timeout=300s
-    fi
+    # Stage 3: Replicated SDK
+    echo "Stage 3: Waiting for Replicated SDK..."
+    echo "  Waiting for Replicated SDK deployment to be available..."
+    $kubectl_cmd wait deployment/replicated \
+        --for=condition=available \
+        -n "$namespace" \
+        --timeout=300s
 
     echo "✅ All Harbor resources ready!"
 }
