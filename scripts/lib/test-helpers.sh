@@ -102,17 +102,14 @@ verify_cert_manager_installation() {
 
     echo "Verifying cert-manager installation..."
 
-    # Wait for deployments
-    wait_for_cert_manager "$kubectl_cmd" "$namespace"
+    # Wait for resources
+    wait_for_cert_manager_resources "$kubectl_cmd" "$namespace"
 
     # Check service endpoints
     wait_for_cert_manager_endpoints "$kubectl_cmd" "$namespace"
 
     # Display final status
-    echo ""
-    echo "cert-manager status:"
-    $kubectl_cmd get deployment,service -n "$namespace" -l app.kubernetes.io/name=cert-manager || true
-    echo ""
+    display_cert_manager_status "$kubectl_cmd" "$namespace"
 
     echo "✅ cert-manager installation verified!"
 }
@@ -132,17 +129,14 @@ verify_nginx_ingress_installation() {
 
     echo "Verifying NGINX Ingress Controller installation..."
 
-    # Wait for deployment
-    wait_for_nginx_ingress "$kubectl_cmd" "$namespace"
+    # Wait for resources
+    wait_for_nginx_ingress_resources "$kubectl_cmd" "$namespace"
 
     # Check service endpoints
     wait_for_nginx_ingress_endpoints "$kubectl_cmd" "$namespace"
 
     # Display final status
-    echo ""
-    echo "NGINX Ingress Controller status:"
-    $kubectl_cmd get deployment,service -n "$namespace" -l app.kubernetes.io/name=ingress-nginx || true
-    echo ""
+    display_nginx_ingress_status "$kubectl_cmd" "$namespace"
 
     echo "✅ NGINX Ingress Controller installation verified!"
 }
@@ -275,7 +269,7 @@ wait_for_harbor_endpoints() {
 # Infrastructure Component Waiting (Low-Level)
 #######################################
 
-# Waits for cert-manager components to be ready
+# Waits for cert-manager resources to be ready
 # Note: Consider using verify_cert_manager_installation() for complete verification
 # Arguments:
 #   $1: kubectl command (default: "kubectl")
@@ -283,9 +277,9 @@ wait_for_harbor_endpoints() {
 # Returns:
 #   0 on success
 # Example:
-#   wait_for_cert_manager "kubectl" "cert-manager"
-#   wait_for_cert_manager "$KUBECTL" "kotsadm"
-wait_for_cert_manager() {
+#   wait_for_cert_manager_resources "kubectl" "cert-manager"
+#   wait_for_cert_manager_resources "$KUBECTL" "kotsadm"
+wait_for_cert_manager_resources() {
     local kubectl_cmd="${1:-kubectl}"
     local namespace="${2:-cert-manager}"
 
@@ -343,7 +337,7 @@ wait_for_cert_manager_endpoints() {
     echo "✅ cert-manager service endpoints ready!"
 }
 
-# Waits for NGINX Ingress Controller to be ready
+# Waits for NGINX Ingress Controller resources to be ready
 # Note: Consider using verify_nginx_ingress_installation() for complete verification
 # Arguments:
 #   $1: kubectl command (default: "kubectl")
@@ -351,9 +345,9 @@ wait_for_cert_manager_endpoints() {
 # Returns:
 #   0 on success
 # Example:
-#   wait_for_nginx_ingress "kubectl" "ingress-nginx"
-#   wait_for_nginx_ingress "$KUBECTL" "kotsadm"
-wait_for_nginx_ingress() {
+#   wait_for_nginx_ingress_resources "kubectl" "ingress-nginx"
+#   wait_for_nginx_ingress_resources "$KUBECTL" "kotsadm"
+wait_for_nginx_ingress_resources() {
     local kubectl_cmd="${1:-kubectl}"
     local namespace="${2:-ingress-nginx}"
 
@@ -451,6 +445,38 @@ display_harbor_status() {
     echo ""
     echo "Final deployment status:"
     $kubectl_cmd get deployment,statefulset,service,ingress -n "$namespace" | grep -E "harbor|replicated" || true
+    echo ""
+}
+
+# Displays final status of cert-manager resources
+# Arguments:
+#   $1: kubectl command (default: "kubectl")
+#   $2: namespace (default: "cert-manager")
+# Example:
+#   display_cert_manager_status "kubectl" "cert-manager"
+display_cert_manager_status() {
+    local kubectl_cmd="${1:-kubectl}"
+    local namespace="${2:-cert-manager}"
+
+    echo ""
+    echo "cert-manager status:"
+    $kubectl_cmd get deployment,service -n "$namespace" -l app.kubernetes.io/name=cert-manager || true
+    echo ""
+}
+
+# Displays final status of NGINX Ingress Controller resources
+# Arguments:
+#   $1: kubectl command (default: "kubectl")
+#   $2: namespace (default: "ingress-nginx")
+# Example:
+#   display_nginx_ingress_status "kubectl" "ingress-nginx"
+display_nginx_ingress_status() {
+    local kubectl_cmd="${1:-kubectl}"
+    local namespace="${2:-ingress-nginx}"
+
+    echo ""
+    echo "NGINX Ingress Controller status:"
+    $kubectl_cmd get deployment,service -n "$namespace" -l app.kubernetes.io/name=ingress-nginx || true
     echo ""
 }
 
