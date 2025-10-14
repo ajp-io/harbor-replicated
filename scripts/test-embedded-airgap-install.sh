@@ -53,25 +53,22 @@ echo "Installation complete! Verifying cluster and pods..."
 # Set kubectl path and kubeconfig
 KUBECTL="sudo KUBECONFIG=/var/lib/embedded-cluster/k0s/pki/admin.conf /var/lib/embedded-cluster/bin/kubectl"
 
-# Wait for components to deploy asynchronously after EC installation in correct order
+# Wait for components to deploy asynchronously after EC installation in dependency order
 echo "Waiting for components to deploy asynchronously in dependency order..."
 
-# Stage 1: NGINX Ingress Controller (deployed first)
+# NGINX Ingress Controller: wait for creation → verify ready
+echo "Stage 1: NGINX Ingress Controller"
 wait_for_resource_creation "NGINX resources" 180 "$KUBECTL get deployment ingress-nginx-controller -n kotsadm >/dev/null 2>&1"
-
-# Stage 2: cert-manager (deployed after NGINX)
-wait_for_resource_creation "cert-manager resources" 180 "$KUBECTL get deployment cert-manager -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-webhook -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-cainjector -n kotsadm >/dev/null 2>&1"
-
-# Stage 3: Harbor (deployed after cert-manager)
-wait_for_resource_creation "Harbor resources" 180 "$KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1"
-
-# Verify NGINX Ingress Controller
 verify_nginx_ingress_installation "$KUBECTL" "kotsadm"
 
-# Verify cert-manager
+# cert-manager: wait for creation → verify ready (can overlap with Harbor creation)
+echo "Stage 2: cert-manager"
+wait_for_resource_creation "cert-manager resources" 180 "$KUBECTL get deployment cert-manager -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-webhook -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-cainjector -n kotsadm >/dev/null 2>&1"
 verify_cert_manager_installation "$KUBECTL" "kotsadm"
 
-# Verify Harbor installation
+# Harbor: wait for creation → verify ready
+echo "Stage 3: Harbor"
+wait_for_resource_creation "Harbor resources" 180 "$KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1"
 verify_harbor_installation "$KUBECTL" "kotsadm"
 
 # Check cert-manager resources
