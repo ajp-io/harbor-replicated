@@ -1,19 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== Harbor Embedded Cluster Air Gap Installation Test ==="
-echo "Starting at: $(date)"
+# Load test helper library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/test-helpers.sh"
+
+test_header "Harbor Embedded Cluster Air Gap Installation Test"
 
 # Validate required environment variables
-if [[ -z "${LICENSE_ID:-}" ]]; then
-    echo "❌ LICENSE_ID environment variable is required"
-    exit 1
-fi
-
-if [[ -z "${HOSTNAME:-}" ]]; then
-    echo "❌ HOSTNAME environment variable is required"
-    exit 1
-fi
+validate_env_vars "LICENSE_ID" "HOSTNAME" || exit 1
 
 echo "✅ Harbor will be accessible at: https://${HOSTNAME}"
 
@@ -55,125 +50,26 @@ sudo ./harbor-enterprise install \
 
 echo "Installation complete! Verifying cluster and pods..."
 
-# Helper function for polling resources with timeout
-poll_for_resources() {
-    local stage_name="$1"
-    local timeout="$2"
-    local check_command="$3"
-    local poll_interval=5
-    local elapsed=0
-
-    echo "Stage: ${stage_name}"
-
-    while [[ $elapsed -lt $timeout ]]; do
-        echo "Checking for ${stage_name} (elapsed: ${elapsed}s/${timeout}s)..."
-
-        if eval "$check_command"; then
-            echo "✅ ${stage_name} detected after ${elapsed}s!"
-            return 0
-        fi
-
-        if [[ $elapsed -ge $timeout ]]; then
-            echo "⚠️  ${stage_name} timeout reached (${timeout}s) - proceeding anyway..."
-            return 1
-        fi
-
-        echo "${stage_name} not ready yet, checking again in ${poll_interval}s..."
-        sleep $poll_interval
-        elapsed=$((elapsed + poll_interval))
-    done
-
-    return 1
-}
-
 # Set kubectl path and kubeconfig
 KUBECTL="sudo KUBECONFIG=/var/lib/embedded-cluster/k0s/pki/admin.conf /var/lib/embedded-cluster/bin/kubectl"
 
-# Wait for components to deploy asynchronously after EC installation in correct order
+# Wait for components to deploy asynchronously after EC installation in dependency order
 echo "Waiting for components to deploy asynchronously in dependency order..."
 
-# Stage 1: NGINX Ingress Controller (deployed first)
-poll_for_resources "NGINX resources" 180 "$KUBECTL get deployment ingress-nginx-controller -n kotsadm >/dev/null 2>&1"
+# NGINX Ingress Controller: wait for creation → verify ready
+echo "Stage 1: NGINX Ingress Controller"
+wait_for_resource_creation "NGINX resources" 180 "$KUBECTL get deployment ingress-nginx-controller -n kotsadm >/dev/null 2>&1"
+verify_nginx_ingress_installation "$KUBECTL" "kotsadm"
 
-# Stage 2: cert-manager (deployed after NGINX)
-poll_for_resources "cert-manager resources" 180 "$KUBECTL get deployment cert-manager -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-webhook -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-cainjector -n kotsadm >/dev/null 2>&1"
+# cert-manager: wait for creation → verify ready (can overlap with Harbor creation)
+echo "Stage 2: cert-manager"
+wait_for_resource_creation "cert-manager resources" 180 "$KUBECTL get deployment cert-manager -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-webhook -n kotsadm >/dev/null 2>&1 && $KUBECTL get deployment cert-manager-cainjector -n kotsadm >/dev/null 2>&1"
+verify_cert_manager_installation "$KUBECTL" "kotsadm"
 
-# Stage 3: Harbor (deployed after cert-manager)
-poll_for_resources "Harbor resources" 180 "$KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1"
-
-# Wait for NGINX resources (deployed first)
-echo "Waiting for NGINX Ingress Controller to be available..."
-$KUBECTL wait deployment/ingress-nginx-controller --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for NGINX Ingress Controller service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=ingress-nginx-controller-admission -n kotsadm --timeout=300s
-
-# Wait for cert-manager resources (deployed second)
-echo "Waiting for cert-manager to be available..."
-$KUBECTL wait deployment/cert-manager --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for cert-manager-webhook to be available..."
-$KUBECTL wait deployment/cert-manager-webhook --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for cert-manager-cainjector to be available..."
-$KUBECTL wait deployment/cert-manager-cainjector --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for cert-manager service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=cert-manager -n kotsadm --timeout=300s
-
-echo "Waiting for cert-manager-webhook service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=cert-manager-webhook -n kotsadm --timeout=300s
-
-# Wait for Harbor resources (deployed third)
-echo "Waiting for PostgreSQL StatefulSet to have ready replicas..."
-$KUBECTL wait statefulset/harbor-database --for=jsonpath='{.status.readyReplicas}'=1 -n kotsadm --timeout=300s
-
-echo "Waiting for Redis StatefulSet to have ready replicas..."
-$KUBECTL wait statefulset/harbor-redis --for=jsonpath='{.status.readyReplicas}'=1 -n kotsadm --timeout=300s
-
-echo "Waiting for Trivy StatefulSet to have ready replicas..."
-$KUBECTL wait statefulset/harbor-trivy --for=jsonpath='{.status.readyReplicas}'=1 -n kotsadm --timeout=300s
-
-echo "Waiting for Harbor Core deployment to be available..."
-$KUBECTL wait deployment/harbor-core --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for Harbor Portal deployment to be available..."
-$KUBECTL wait deployment/harbor-portal --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for Harbor Registry deployment to be available..."
-$KUBECTL wait deployment/harbor-registry --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for Harbor Jobservice deployment to be available..."
-$KUBECTL wait deployment/harbor-jobservice --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for PostgreSQL service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-database -n kotsadm --timeout=300s
-
-echo "Waiting for Redis service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-redis -n kotsadm --timeout=300s
-
-echo "Waiting for Harbor Core service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-core -n kotsadm --timeout=300s
-
-echo "Waiting for Harbor Portal service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-portal -n kotsadm --timeout=300s
-
-echo "Waiting for Harbor Registry service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-registry -n kotsadm --timeout=300s
-
-echo "Waiting for Harbor Jobservice service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-jobservice -n kotsadm --timeout=300s
-
-echo "Waiting for Trivy service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=harbor-trivy -n kotsadm --timeout=300s
-
-echo "Waiting for Replicated SDK deployment to be available..."
-$KUBECTL wait deployment/replicated --for=condition=available -n kotsadm --timeout=300s
-
-echo "Waiting for Replicated SDK service to have endpoints..."
-$KUBECTL wait --for=jsonpath='{.endpoints[0]}' endpointslice -l kubernetes.io/service-name=replicated -n kotsadm --timeout=300s
-
-echo "All resources verified and ready!"
+# Harbor: wait for creation → verify ready
+echo "Stage 3: Harbor"
+wait_for_resource_creation "Harbor resources" 180 "$KUBECTL get deployment harbor-core -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-database -n kotsadm >/dev/null 2>&1 && $KUBECTL get statefulset harbor-redis -n kotsadm >/dev/null 2>&1"
+verify_harbor_installation "$KUBECTL" "kotsadm"
 
 # Check cert-manager resources
 echo "Checking ClusterIssuer for Let's Encrypt..."
@@ -216,30 +112,21 @@ fi
 
 # Test Harbor UI accessibility via HTTPS ingress
 echo "Testing Harbor UI accessibility via HTTPS ingress at: https://${HOSTNAME}"
-for i in {1..10}; do
-    echo "Attempt $i/10: Testing Harbor UI via HTTPS..."
-    if curl -f -s -I -k "https://${HOSTNAME}" | grep -q "HTTP/[0-9.]\+ 200"; then
-        echo "✅ Harbor UI is accessible via HTTPS ingress!"
+if ! test_harbor_ui "https://${HOSTNAME}" 10 30 "-f -s -I -k"; then
+    echo "❌ Harbor UI not accessible via HTTPS after 10 attempts"
+    echo "Debugging ingress configuration..."
+    $KUBECTL get ingress -n kotsadm -o yaml
+    $KUBECTL get service -n kotsadm
+    exit 1
+fi
 
-        # Test with valid certificate (no -k flag)
-        echo "Testing certificate validity..."
-        if curl -f -s -I "https://${HOSTNAME}" | grep -q "HTTP/[0-9.]\+ 200"; then
-            echo "✅ Harbor UI accessible with valid Let's Encrypt certificate!"
-        else
-            echo "⚠️  Harbor UI accessible but certificate may not be valid"
-        fi
-        break
-    elif [[ $i -eq 10 ]]; then
-        echo "❌ Harbor UI not accessible via HTTPS after 10 attempts"
-        echo "Debugging ingress configuration..."
-        $KUBECTL get ingress -n kotsadm -o yaml
-        $KUBECTL get service -n ingress-nginx
-        exit 1
-    else
-        echo "Harbor UI not ready yet, waiting 30 seconds..."
-        sleep 30
-    fi
-done
+# Test with valid certificate (no -k flag)
+echo "Testing certificate validity..."
+if curl -f -s -I "https://${HOSTNAME}" | grep -q "HTTP/[0-9.]\+ 200"; then
+    echo "✅ Harbor UI accessible with valid Let's Encrypt certificate!"
+else
+    echo "⚠️  Harbor UI accessible but certificate may not be valid"
+fi
 
 # Test HTTP to HTTPS redirect
 echo "Testing HTTP to HTTPS redirect..."
@@ -251,6 +138,5 @@ fi
 
 echo "Cluster verification complete!"
 
-echo "=== Harbor Embedded Cluster Air Gap Installation Test PASSED ==="
+test_footer "Harbor Embedded Cluster Air Gap Installation Test"
 echo "✅ Harbor is accessible at: https://${HOSTNAME}"
-echo "Completed at: $(date)"

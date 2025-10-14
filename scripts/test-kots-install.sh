@@ -1,8 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== Harbor KOTS Installation Test ==="
-echo "Starting at: $(date)"
+# Load test helper library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/test-helpers.sh"
+
+test_header "Harbor KOTS Installation Test"
 
 # Configuration
 CUSTOMER_NAME="GitHub CI"
@@ -11,15 +14,7 @@ APP_NAME="harbor-enterprise"
 SHARED_PASSWORD="TestAdminPassword123!"
 
 # Validate required environment variables
-if [[ -z "${TEST_VERSION:-}" ]]; then
-    echo "❌ TEST_VERSION environment variable is required"
-    exit 1
-fi
-
-if [[ -z "${REPLICATED_API_TOKEN:-}" ]]; then
-    echo "❌ REPLICATED_API_TOKEN environment variable is required"
-    exit 1
-fi
+validate_env_vars "TEST_VERSION" "REPLICATED_API_TOKEN" || exit 1
 
 echo "Installing KOTS for version: ${TEST_VERSION}"
 
@@ -65,62 +60,8 @@ kubectl kots install ${APP_NAME}/${CHANNEL} \
 
 echo "KOTS installation complete! Verifying deployments..."
 
-# Wait for PostgreSQL StatefulSet first (dependencies)
-echo "Waiting for PostgreSQL StatefulSet to have ready replicas..."
-kubectl wait statefulset/harbor-database --for=jsonpath='{.status.readyReplicas}'=1 -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Redis StatefulSet to have ready replicas..."
-kubectl wait statefulset/harbor-redis --for=jsonpath='{.status.readyReplicas}'=1 -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Trivy StatefulSet to have ready replicas..."
-kubectl wait statefulset/harbor-trivy --for=jsonpath='{.status.readyReplicas}'=1 -n ${NAMESPACE} --timeout=300s
-
-# Wait for Deployments (Harbor depends on database/cache)
-echo "Waiting for Harbor Core deployment to be available..."
-kubectl wait deployment/harbor-core --for=condition=available -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Harbor Portal deployment to be available..."
-kubectl wait deployment/harbor-portal --for=condition=available -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Harbor Registry deployment to be available..."
-kubectl wait deployment/harbor-registry --for=condition=available -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Harbor Jobservice deployment to be available..."
-kubectl wait deployment/harbor-jobservice --for=condition=available -n ${NAMESPACE} --timeout=300s
-
-# Wait for Services to have endpoints (confirms they have healthy backends)
-echo "Waiting for PostgreSQL service to have endpoints..."
-kubectl wait --for=jsonpath='{.subsets}' endpoints/harbor-database -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Redis service to have endpoints..."
-kubectl wait --for=jsonpath='{.subsets}' endpoints/harbor-redis -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Harbor Core service to have endpoints..."
-kubectl wait --for=jsonpath='{.subsets}' endpoints/harbor-core -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Harbor Portal service to have endpoints..."
-kubectl wait --for=jsonpath='{.subsets}' endpoints/harbor-portal -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Harbor Registry service to have endpoints..."
-kubectl wait --for=jsonpath='{.subsets}' endpoints/harbor-registry -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Harbor Jobservice service to have endpoints..."
-kubectl wait --for=jsonpath='{.subsets}' endpoints/harbor-jobservice -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Trivy service to have endpoints..."
-kubectl wait --for=jsonpath='{.subsets}' endpoints/harbor-trivy -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Replicated SDK deployment to be available..."
-kubectl wait deployment/replicated --for=condition=available -n ${NAMESPACE} --timeout=300s
-
-echo "Waiting for Replicated SDK service to have endpoints..."
-kubectl wait --for=jsonpath='{.subsets}' endpoints/replicated -n ${NAMESPACE} --timeout=300s
-
-echo "All resources verified and ready!"
-
-# Show final status
-echo "Checking final deployment status..."
-kubectl get deployment,statefulset,service -n ${NAMESPACE} | grep harbor
+# Verify complete Harbor installation (resources + endpoints + status)
+verify_harbor_installation "kubectl" "${NAMESPACE}"
 
 echo "Testing Harbor UI accessibility through KOTS admin console..."
 # Start admin console in background
@@ -129,11 +70,10 @@ KOTS_PID=$!
 
 # Wait for port forward to establish
 echo "Waiting for admin console port forward to establish..."
-sleep 15
+sleep 5
 
-# Test UI accessibility
-echo "Testing Harbor UI at localhost:30001..."
-if curl -f -s http://localhost:30001 > /dev/null 2>&1; then
+# Test UI accessibility using helper (retry with short intervals for robustness)
+if test_harbor_ui "http://localhost:30001" 5 3 "-f -s"; then
     echo "✅ Harbor UI is accessible through KOTS admin console"
 else
     echo "❌ Harbor UI not accessible through KOTS admin console"
@@ -148,5 +88,4 @@ sleep 2
 
 echo "Cluster verification complete!"
 
-echo "=== Harbor KOTS Installation Test PASSED ==="
-echo "Completed at: $(date)"
+test_footer "Harbor KOTS Installation Test"
