@@ -3,13 +3,6 @@ name: PR Tests
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - 'charts/**'           # Any changes to charts
-      - 'chart-overlays/**'   # Changes to overlay customizations
-      - 'manifests/**'        # Changes to manifests
-      - 'scripts/**'          # Changes to update scripts
-      - 'test/**'             # Test configuration files
-      - '.github/workflows/pr-test.yml'  # Allow testing the workflow itself
 
 env:
   REPLICATED_APP: harbor-enterprise
