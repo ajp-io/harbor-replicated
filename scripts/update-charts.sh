@@ -197,6 +197,24 @@ update_manifest_version() {
     fi
 }
 
+# Update Harbor chart SDK dependency version
+update_harbor_chart_overlay() {
+    local sdk_version="$1"
+    local harbor_chart_file="$PROJECT_ROOT/charts/harbor/Chart.yaml"
+
+    if [[ ! -f "$harbor_chart_file" ]]; then
+        error "Harbor Chart.yaml not found at $harbor_chart_file"
+        return 1
+    fi
+
+    log "Updating Harbor SDK dependency to version $sdk_version..."
+
+    # Update the replicated SDK dependency version
+    yq eval "(.dependencies[] | select(.name == \"replicated\") | .version) = \"$sdk_version\"" -i "$harbor_chart_file"
+
+    success "Harbor SDK dependency updated to $sdk_version"
+}
+
 # Process a single chart update
 update_single_chart() {
     local chart_name="$1"
