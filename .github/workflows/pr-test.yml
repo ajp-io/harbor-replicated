@@ -176,6 +176,34 @@ jobs:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
           REPLICATED_APP: ${{ env.REPLICATED_APP }}
 
+      - name: Enable network reporting
+        id: network_reporting
+        run: |
+          # Get network ID from VM
+          echo "Fetching network ID for VM: ${{ steps.vm.outputs.vm_id }}"
+          VM_INFO=$(replicated vm ls --output json)
+          NETWORK_ID=$(echo "$VM_INFO" | jq -r '.[] | select(.id == "${{ steps.vm.outputs.vm_id }}") | .network_id')
+
+          if [[ -z "$NETWORK_ID" || "$NETWORK_ID" == "null" ]]; then
+            echo "❌ Failed to get network ID from VM info"
+            exit 1
+          fi
+
+          echo "✅ Network ID: $NETWORK_ID"
+
+          # Enable network reporting
+          echo "Enabling network reporting on network: $NETWORK_ID"
+          replicated network update "$NETWORK_ID" --collect-report
+
+          # Verify reporting is enabled
+          echo "Verifying network reporting is enabled..."
+          replicated network ls
+
+          echo "✅ Network reporting enabled"
+          echo "network_id=$NETWORK_ID" >> $GITHUB_OUTPUT
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
       - name: Setup SSH Agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -223,8 +251,20 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
+      - name: Validate network traffic
+        if: always()
+        run: |
+          # Make validation script executable
+          chmod +x scripts/validate-network-report.sh
+
+          # Run network validation
+          echo "Validating network traffic for network: ${{ steps.network_reporting.outputs.network_id }}"
+          scripts/validate-network-report.sh "${{ steps.network_reporting.outputs.network_id }}"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
       - name: Cleanup VM
-        if: success()
+        if: always()
         run: |
           if [[ -n "${{ steps.vm.outputs.vm_id }}" ]]; then
             echo "✅ Test passed! Cleaning up VM: ${{ steps.vm.outputs.vm_id }}"
