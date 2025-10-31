@@ -31,21 +31,36 @@ while [ $ATTEMPT -le $MAX_RETRIES ]; do
     echo "Attempt $ATTEMPT of $MAX_RETRIES..."
 
     REPORT=$(replicated network report "${NETWORK_ID}" --summary 2>&1)
+    REPORT_EXIT_CODE=$?
+
+    echo "Command exit code: $REPORT_EXIT_CODE"
+
+    # Show what we got back
+    if [ -n "$REPORT" ]; then
+        echo "Response received (first 200 chars): ${REPORT:0:200}"
+    else
+        echo "Response: (empty)"
+    fi
 
     # Check if command succeeded and returned valid data
-    if [ $? -eq 0 ] && [ -n "$REPORT" ] && [ "$REPORT" != "null" ] && ! echo "$REPORT" | grep -q "Error:"; then
+    if [ $REPORT_EXIT_CODE -eq 0 ] && [ -n "$REPORT" ] && [ "$REPORT" != "null" ] && ! echo "$REPORT" | grep -q "Error:"; then
         echo "✅ Network report fetched successfully"
         break
     fi
 
     if [ $ATTEMPT -eq $MAX_RETRIES ]; then
+        echo ""
         echo "❌ ERROR: Failed to fetch network report after $MAX_RETRIES attempts"
-        echo "Last error: $REPORT"
+        echo "=========================================="
+        echo "Last response:"
+        echo "$REPORT"
+        echo "=========================================="
         echo ""
         echo "This could mean:"
         echo "  1. Network reporting was not properly enabled"
         echo "  2. No network activity occurred during the test"
         echo "  3. The report takes longer than expected to generate"
+        echo "  4. Wrong network ID format"
         echo ""
         exit 1
     fi
