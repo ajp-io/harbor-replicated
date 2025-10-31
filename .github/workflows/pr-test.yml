@@ -182,14 +182,18 @@ jobs:
           # Get network ID from VM
           echo "Fetching network ID for VM: ${{ steps.vm.outputs.vm_id }}"
           VM_INFO=$(replicated vm ls --output json)
-          NETWORK_ID=$(echo "$VM_INFO" | jq -r '.[] | select(.id == "${{ steps.vm.outputs.vm_id }}") | .network_id')
+          NETWORK_ID_FULL=$(echo "$VM_INFO" | jq -r '.[] | select(.id == "${{ steps.vm.outputs.vm_id }}") | .network_id')
 
-          if [[ -z "$NETWORK_ID" || "$NETWORK_ID" == "null" ]]; then
+          if [[ -z "$NETWORK_ID_FULL" || "$NETWORK_ID_FULL" == "null" ]]; then
             echo "❌ Failed to get network ID from VM info"
             exit 1
           fi
 
-          echo "✅ Network ID: $NETWORK_ID"
+          # Use short ID (first 8 characters) for CLI commands
+          NETWORK_ID="${NETWORK_ID_FULL:0:8}"
+
+          echo "✅ Network ID (full): $NETWORK_ID_FULL"
+          echo "✅ Network ID (short): $NETWORK_ID"
 
           # Enable network reporting
           echo "Enabling network reporting on network: $NETWORK_ID"
