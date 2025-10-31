@@ -176,6 +176,38 @@ jobs:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
           REPLICATED_APP: ${{ env.REPLICATED_APP }}
 
+      - name: Enable network reporting
+        id: network_reporting
+        run: |
+          # Get network ID from VM
+          echo "Fetching network ID for VM: ${{ steps.vm.outputs.vm_id }}"
+          VM_INFO=$(replicated vm ls --output json)
+          NETWORK_ID_FULL=$(echo "$VM_INFO" | jq -r '.[] | select(.id == "${{ steps.vm.outputs.vm_id }}") | .network_id')
+
+          if [[ -z "$NETWORK_ID_FULL" || "$NETWORK_ID_FULL" == "null" ]]; then
+            echo "❌ Failed to get network ID from VM info"
+            exit 1
+          fi
+
+          # Use short ID (first 8 characters) for CLI commands
+          NETWORK_ID="${NETWORK_ID_FULL:0:8}"
+
+          echo "✅ Network ID (full): $NETWORK_ID_FULL"
+          echo "✅ Network ID (short): $NETWORK_ID"
+
+          # Enable network reporting
+          echo "Enabling network reporting on network: $NETWORK_ID"
+          replicated network update "$NETWORK_ID" --collect-report
+
+          # Verify reporting is enabled
+          echo "Verifying network reporting is enabled..."
+          replicated network ls
+
+          echo "✅ Network reporting enabled"
+          echo "network_id=$NETWORK_ID" >> $GITHUB_OUTPUT
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
       - name: Setup SSH Agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -220,6 +252,17 @@ jobs:
           ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 $SSH_ENDPOINT 'chmod +x /tmp/test.sh && sudo TEST_VERSION="${{ needs.create-release.outputs.test_version }}" LICENSE_ID="${{ secrets.HARBOR_LICENSE_ID }}" HOSTNAME="${{ steps.vm.outputs.hostname }}" CHANNEL="unstable" /tmp/test.sh'
 
           echo "Test completed successfully!"
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+
+      - name: Validate network traffic
+        run: |
+          # Make validation script executable
+          chmod +x scripts/validate-network-report.sh
+
+          # Run network validation
+          echo "Validating network traffic for network: ${{ steps.network_reporting.outputs.network_id }}"
+          scripts/validate-network-report.sh "${{ steps.network_reporting.outputs.network_id }}"
         env:
           REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
