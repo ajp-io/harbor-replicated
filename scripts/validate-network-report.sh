@@ -30,8 +30,12 @@ ATTEMPT=1
 while [ $ATTEMPT -le $MAX_RETRIES ]; do
     echo "Attempt $ATTEMPT of $MAX_RETRIES..."
 
-    REPORT=$(replicated network report "${NETWORK_ID}" --summary 2>&1)
+    # Temporarily disable exit on error to capture the output
+    # Note: --summary flag appears to not work, so we use the full report instead
+    set +e
+    REPORT=$(replicated network report "${NETWORK_ID}" 2>&1)
     REPORT_EXIT_CODE=$?
+    set -e
 
     echo "Command exit code: $REPORT_EXIT_CODE"
 
@@ -70,27 +74,32 @@ while [ $ATTEMPT -le $MAX_RETRIES ]; do
     ATTEMPT=$((ATTEMPT + 1))
 done
 
-# Extract total events
-TOTAL_EVENTS=$(echo "$REPORT" | jq -r '.totalEvents // 0')
+# Extract total events from the events array
+TOTAL_EVENTS=$(echo "$REPORT" | jq -r '.events | length')
 echo "Total network events: ${TOTAL_EVENTS}"
 echo ""
 
-# Extract unique domains
-DOMAINS=$(echo "$REPORT" | jq -r '.domainNames[]? | .domain' 2>/dev/null | sort -u || echo "")
+# Extract unique DNS query names (domains) from events
+DOMAINS=$(echo "$REPORT" | jq -r '.events[]? | select(.dnsQueryName != null and .dnsQueryName != "") | .dnsQueryName' 2>/dev/null | sort -u || echo "")
 
 if [ -z "$DOMAINS" ]; then
     echo "⚠️  WARNING: No domain names found in network report"
     echo ""
-    echo "Full report:"
-    echo "$REPORT" | jq '.'
+    echo "This could mean no DNS queries were made, or only IP connections occurred."
+    echo "First 10 events:"
+    echo "$REPORT" | jq '.events[0:10]'
     echo ""
-    echo "✅ PASSED: No external domains contacted (empty report)"
+    echo "✅ PASSED: No external domains contacted"
     exit 0
 fi
 
 echo "Domains contacted during installation:"
 echo "=================================================="
-echo "$REPORT" | jq -r '.domainNames[] | "\(.domain) - \(.count) requests"'
+# Count occurrences of each domain
+echo "$DOMAINS" | while read -r domain; do
+    COUNT=$(echo "$REPORT" | jq -r --arg domain "$domain" '[.events[] | select(.dnsQueryName == $domain)] | length')
+    echo "$domain - $COUNT DNS queries"
+done
 echo ""
 
 # Validate each domain
