@@ -21,12 +21,39 @@ echo ""
 
 # Fetch network report summary
 echo "Fetching network report summary..."
-REPORT=$(replicated network report "${NETWORK_ID}" --summary)
 
-if [ -z "$REPORT" ] || [ "$REPORT" == "null" ]; then
-    echo "❌ ERROR: No network report available for network ${NETWORK_ID}"
-    exit 1
-fi
+# Retry logic: Network reports may take a few seconds to become available
+MAX_RETRIES=5
+RETRY_DELAY=5
+ATTEMPT=1
+
+while [ $ATTEMPT -le $MAX_RETRIES ]; do
+    echo "Attempt $ATTEMPT of $MAX_RETRIES..."
+
+    REPORT=$(replicated network report "${NETWORK_ID}" --summary 2>&1)
+
+    # Check if command succeeded and returned valid data
+    if [ $? -eq 0 ] && [ -n "$REPORT" ] && [ "$REPORT" != "null" ] && ! echo "$REPORT" | grep -q "Error:"; then
+        echo "✅ Network report fetched successfully"
+        break
+    fi
+
+    if [ $ATTEMPT -eq $MAX_RETRIES ]; then
+        echo "❌ ERROR: Failed to fetch network report after $MAX_RETRIES attempts"
+        echo "Last error: $REPORT"
+        echo ""
+        echo "This could mean:"
+        echo "  1. Network reporting was not properly enabled"
+        echo "  2. No network activity occurred during the test"
+        echo "  3. The report takes longer than expected to generate"
+        echo ""
+        exit 1
+    fi
+
+    echo "Report not ready yet, waiting ${RETRY_DELAY} seconds..."
+    sleep $RETRY_DELAY
+    ATTEMPT=$((ATTEMPT + 1))
+done
 
 # Extract total events
 TOTAL_EVENTS=$(echo "$REPORT" | jq -r '.totalEvents // 0')
