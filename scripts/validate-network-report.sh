@@ -79,8 +79,21 @@ TOTAL_EVENTS=$(echo "$REPORT" | jq -r '.events | length')
 echo "Total network events: ${TOTAL_EVENTS}"
 echo ""
 
-# Extract unique DNS query names (domains) from events
-DOMAINS=$(echo "$REPORT" | jq -r '.events[]? | select(.dnsQueryName != null and .dnsQueryName != "") | .dnsQueryName' 2>/dev/null | sort -u || echo "")
+# Extract unique DNS query names (domains) from events, excluding internal/local domains
+# Filter out:
+# - *.cluster.local (Kubernetes internal DNS)
+# - *.svc.cluster.local (Kubernetes service DNS)
+# - localhost/127.0.0.1 references
+# - Pure IP addresses or internal identifiers (numbers, short hashes)
+DOMAINS=$(echo "$REPORT" | jq -r '.events[]? | select(.dnsQueryName != null and .dnsQueryName != "") | .dnsQueryName' 2>/dev/null | \
+    grep -v '\.cluster\.local$' | \
+    grep -v '\.svc\.cluster\.local$' | \
+    grep -v '^127\.' | \
+    grep -v '^localhost' | \
+    grep -v '^[0-9]\+$' | \
+    grep -v '^[0-9a-f]\{8\}$' | \
+    grep -E '\.[a-z]{2,}$' | \
+    sort -u || echo "")
 
 if [ -z "$DOMAINS" ]; then
     echo "⚠️  WARNING: No domain names found in network report"
@@ -97,8 +110,10 @@ echo "Domains contacted during installation:"
 echo "=================================================="
 # Count occurrences of each domain
 echo "$DOMAINS" | while read -r domain; do
-    COUNT=$(echo "$REPORT" | jq -r --arg domain "$domain" '[.events[] | select(.dnsQueryName == $domain)] | length')
-    echo "$domain - $COUNT DNS queries"
+    if [ -n "$domain" ]; then
+        COUNT=$(echo "$REPORT" | jq -r --arg domain "$domain" '[.events[]? | select(.dnsQueryName == $domain)] | length' 2>/dev/null || echo "0")
+        echo "$domain - $COUNT DNS queries"
+    fi
 done
 echo ""
 
