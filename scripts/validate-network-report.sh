@@ -10,7 +10,7 @@ if [ $# -ne 1 ]; then
 fi
 
 NETWORK_ID="$1"
-ALLOWED_DOMAINS=("images.alexparker.info" "updates.alexparker.info")
+ALLOWED_DOMAINS=("images.alexparker.info" "updates.alexparker.info" "acme-staging-v02.api.letsencrypt.org" "api.github.com")
 
 echo "=================================================="
 echo "Network Report Validation"
