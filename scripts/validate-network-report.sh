@@ -83,11 +83,16 @@ echo ""
 # Filter out:
 # - *.cluster.local (Kubernetes internal DNS)
 # - *.svc.cluster.local (Kubernetes service DNS)
+# - *.replicatedcluster.com (Replicated infrastructure)
 # - localhost/127.0.0.1 references
+# - NTP servers (*.ntp.org, ntp.ubuntu.com)
 # - Pure IP addresses or internal identifiers (numbers, short hashes)
 DOMAINS=$(echo "$REPORT" | jq -r '.events[]? | select(.dnsQueryName != null and .dnsQueryName != "") | .dnsQueryName' 2>/dev/null | \
     grep -v '\.cluster\.local$' | \
     grep -v '\.svc\.cluster\.local$' | \
+    grep -v '\.replicatedcluster\.com$' | \
+    grep -v '\.ntp\.org$' | \
+    grep -v '^ntp\.ubuntu\.com$' | \
     grep -v '^127\.' | \
     grep -v '^localhost' | \
     grep -v '^[0-9]\+$' | \
@@ -131,12 +136,12 @@ while IFS= read -r domain; do
     done
 
     if [[ $ALLOWED -eq 0 ]]; then
-        COUNT=$(echo "$REPORT" | jq -r --arg domain "$domain" '.domainNames[] | select(.domain == $domain) | .count')
+        COUNT=$(echo "$REPORT" | jq -r --arg domain "$domain" '[.events[]? | select(.dnsQueryName == $domain)] | length' 2>/dev/null || echo "0")
         echo "❌ VIOLATION: $domain ($COUNT requests)"
         VIOLATIONS+=("$domain")
         VALIDATION_FAILED=1
     else
-        COUNT=$(echo "$REPORT" | jq -r --arg domain "$domain" '.domainNames[] | select(.domain == $domain) | .count')
+        COUNT=$(echo "$REPORT" | jq -r --arg domain "$domain" '[.events[]? | select(.dnsQueryName == $domain)] | length' 2>/dev/null || echo "0")
         echo "✅ ALLOWED: $domain ($COUNT requests)"
     fi
 done <<< "$DOMAINS"
