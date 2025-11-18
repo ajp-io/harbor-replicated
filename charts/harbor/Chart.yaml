@@ -24,4 +24,4 @@ version: 1.18.0
 dependencies:
   - name: replicated
     repository: oci://registry.replicated.com/library
-    version: "1.8.0"
+    version: "1.11.1"
