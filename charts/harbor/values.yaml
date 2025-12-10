@@ -356,9 +356,7 @@ ipFamily:
 imagePullPolicy: IfNotPresent
 
 # Use this set to assign a list of default pullSecrets
-# The replicated-pull-secret is automatically created when installed via Replicated
 imagePullSecrets:
-  - name: replicated-pull-secret
 #  - name: docker-registry-secret
 #  - name: internal-registry-secret
 
@@ -500,8 +498,8 @@ containerSecurityContext:
 # If service exposed via "ingress", the Nginx will not be used
 nginx:
   image:
-    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/nginx-photon
-    tag: v2.14.0
+    repository: goharbor/nginx-photon
+    tag: v2.14.1
   # set the service account to be used, default if left empty
   serviceAccountName: ""
   # mount the service account token
@@ -531,8 +529,8 @@ nginx:
 
 portal:
   image:
-    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-portal
-    tag: v2.14.0
+    repository: goharbor/harbor-portal
+    tag: v2.14.1
   # set the service account to be used, default if left empty
   serviceAccountName: ""
   # mount the service account token
@@ -571,8 +569,8 @@ portal:
 
 core:
   image:
-    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-core
-    tag: v2.14.0
+    repository: goharbor/harbor-core
+    tag: v2.14.1
   # set the service account to be used, default if left empty
   serviceAccountName: ""
   # mount the service account token
@@ -660,8 +658,8 @@ core:
 
 jobservice:
   image:
-    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-jobservice
-    tag: v2.14.0
+    repository: goharbor/harbor-jobservice
+    tag: v2.14.1
   # set the service account to be used, default if left empty
   serviceAccountName: ""
   # mount the service account token
@@ -723,8 +721,8 @@ jobservice:
 registry:
   registry:
     image:
-      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/registry-photon
-      tag: v2.14.0
+      repository: goharbor/registry-photon
+      tag: v2.14.1
     # resources:
     #  requests:
     #    memory: 256Mi
@@ -732,8 +730,8 @@ registry:
     extraEnvVars: []
   controller:
     image:
-      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-registryctl
-      tag: v2.14.0
+      repository: goharbor/harbor-registryctl
+      tag: v2.14.1
     # resources:
     #  requests:
     #    memory: 256Mi
@@ -812,9 +810,9 @@ trivy:
   enabled: true
   image:
     # repository the repository for Trivy adapter image
-    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/trivy-adapter-photon
+    repository: goharbor/trivy-adapter-photon
     # tag the tag for Trivy adapter image
-    tag: v2.14.0
+    tag: v2.14.1
   # set the service account to be used, default if left empty
   serviceAccountName: ""
   # mount the service account token
@@ -872,7 +870,7 @@ trivy:
   # Anonymous downloads from GitHub are subject to the limit of 60 requests per hour. Normally such rate limit is enough
   # for production operations. If, for any reason, it's not enough, you could increase the rate limit to 5000
   # requests per hour by specifying the GitHub access token. For more details on GitHub rate limiting please consult
-  # https://v2.14.0eloper.github.com/v3/#rate-limiting
+  # https://developer.github.com/v3/#rate-limiting
   #
   # You can create a GitHub token by following the instructions in
   # https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line
@@ -917,8 +915,8 @@ database:
   type: internal
   internal:
     image:
-      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-db
-      tag: v2.14.0
+      repository: goharbor/harbor-db
+      tag: v2.14.1
     # set the service account to be used, default if left empty
     serviceAccountName: ""
     # mount the service account token
@@ -997,8 +995,8 @@ redis:
   type: internal
   internal:
     image:
-      repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/redis-photon
-      tag: v2.14.0
+      repository: goharbor/redis-photon
+      tag: v2.14.1
     # set the service account to be used, default if left empty
     serviceAccountName: ""
     # mount the service account token
@@ -1067,8 +1065,8 @@ redis:
 
 exporter:
   image:
-    repository: images.alexparker.info/proxy/harbor-enterprise/docker/goharbor/harbor-exporter
-    tag: v2.14.0
+    repository: goharbor/harbor-exporter
+    tag: v2.14.1
   serviceAccountName: ""
   # mount the service account token
   automountServiceAccountToken: false
@@ -1095,11 +1093,3 @@ exporter:
   #   whenUnsatisfiable: DoNotSchedule
   cacheDuration: 23
   cacheCleanInterval: 14400
-
-# Replicated SDK configuration (subchart from dependencies)
-# This configures the Replicated SDK to use the proxy registry
-replicated:
-  image:
-    registry: images.alexparker.info
-  imagePullSecrets:
-    - name: replicated-pull-secret
