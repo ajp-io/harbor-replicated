@@ -6,7 +6,7 @@ spec:
   # chart identifies a matching chart from a .tgz
   chart:
     name: harbor
-    chartVersion: 1.18.0
+    chartVersion: 1.18.1
   weight: 0
   helmUpgradeFlags:
     - --wait
