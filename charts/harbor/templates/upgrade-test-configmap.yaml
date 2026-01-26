@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: harbor-upgrade-test
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "harbor.labels" . | nindent 4 }}
+data:
+  upgrade-version: "v2"
+  kubernetes-version: "1.33"
+  test-timestamp: "{{ now | date "2006-01-02T15:04:05Z07:00" }}"
