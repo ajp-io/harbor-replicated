@@ -1,33 +1,31 @@
 # Claude Code Instructions
 
-## Critical: Replicated Environment Setup
+## Release Workflow
 
-**ALWAYS** follow this process when accessing Replicated resources (clusters, VMs, releases):
+When you ask me to "create a release" or "make a release", I should:
 
-1. **First**, run `repl-env-prod` to set production credentials
-2. **Then**, ensure ALL subsequent `replicated` commands run in the SAME shell session
-3. The default shell uses staging credentials from zshrc - production access requires explicit environment switching
+1. **Get current version and increment patch**
+   - Get current Unstable version: `replicated release ls --channel Unstable | head -5`
+   - Parse the version and increment patch (e.g., `1.18.0` → `1.18.1`)
 
-### Example:
-```bash
-# WRONG - each command runs in separate shell, loses environment
-repl-env-prod
-replicated cluster ls
+2. **Package Helm charts**
+   - Clean existing packages: `rm -f manifests/*.tgz`
+   - Update Harbor dependencies: `helm dependency update charts/harbor`
+   - Package charts:
+     - `helm package charts/harbor -d manifests -u`
+     - `helm package charts/ingress-nginx -d manifests -u`
+     - `helm package charts/cert-manager -d manifests -u`
 
-# CORRECT - commands chained in same shell
-repl-env-prod && replicated cluster ls
+3. **Create and promote release**
+   - `replicated release create --yaml-dir ./manifests --promote Unstable --version [NEW_VERSION]`
+   - **Note**: Do not use `--lint` flag when using alpha/beta EC versions, as they won't be recognized by the linter and will cause "non-existent-ec-version" errors. Skip linting for alpha releases.
 
-# OR use multiple commands in single bash call
-repl-env-prod
-replicated cluster kubeconfig CLUSTER_ID
-kubectl get pods
-```
+4. **Cleanup**
+   - `rm -f manifests/*.tgz`
+   - `rm -rf charts/harbor/charts/`
+   - Show result: `replicated release ls | head -5`
 
-### Why This Matters:
-- GitHub Actions workflows create resources in **production**
-- Default shell has **staging** credentials
-- Accessing production clusters/VMs requires production environment variables
-- Environment variables don't persist across separate tool calls
+**Note**: Production credentials are already default in your shell (set in .zshrc), no environment switching needed.
 
 ## Replicated SDK Configuration
 
