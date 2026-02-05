@@ -57,6 +57,7 @@ spec:
     - name: embedded_postgres_password
       title: Embedded PostgreSQL Password
       type: password
+      default: admin
       required: true
       help_text: Password for the embedded PostgreSQL database superuser
       when: 'repl{{ ConfigOptionEquals "database_type" "embedded" }}'
