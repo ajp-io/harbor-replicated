@@ -4,9 +4,15 @@
 
 When you ask me to "create a release" or "make a release", I should:
 
-1. **Get current version and increment patch**
-   - Get current Unstable version: `replicated release ls --channel Unstable | head -5`
-   - Parse the version and increment patch (e.g., `1.18.0` → `1.18.1`)
+1. **Generate version string**
+   - Format: `claude-{COMMIT_SHA_SHORT}`
+   - Example: `claude-d4b3347`
+   - This distinguishes manual releases from PR releases (`pr{number}-r{run}-{commit}`)
+   - Generate with:
+     ```bash
+     COMMIT_SHORT=$(git rev-parse --short HEAD)
+     VERSION="claude-${COMMIT_SHORT}"
+     ```
 
 2. **Package Helm charts**
    - Clean existing packages: `rm -f manifests/*.tgz`
@@ -17,7 +23,7 @@ When you ask me to "create a release" or "make a release", I should:
      - `helm package charts/cert-manager -d manifests -u`
 
 3. **Create and promote release**
-   - `replicated release create --yaml-dir ./manifests --promote Unstable --version [NEW_VERSION]`
+   - `replicated release create --yaml-dir ./manifests --promote Unstable --version ${VERSION}`
    - **Note**: Do not use `--lint` flag when using alpha/beta EC versions, as they won't be recognized by the linter and will cause "non-existent-ec-version" errors. Skip linting for alpha releases.
 
 4. **Cleanup**
