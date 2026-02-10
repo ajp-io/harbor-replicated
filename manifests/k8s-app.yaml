@@ -7,6 +7,6 @@ spec:
     links:
       - description: Harbor Registry
         # Embedded cluster uses direct HTTPS ingress, KOTS uses port-forward to http://harbor
-        url: '{{repl if eq Distribution "embedded-cluster" }}https://{{repl ConfigOption "harbor_hostname" }}{{repl else }}http://harbor{{repl end }}'
+        url: '{{repl if (ne Distribution "embedded-cluster") }}http://harbor{{repl else}}{{repl if (ConfigOptionNotEquals "harbor_hostname" "") }}https://{{repl ConfigOption "harbor_hostname" }}{{repl end}}{{repl end}}'
       - description: Documentation
         url: https://goharbor.io/docs/
