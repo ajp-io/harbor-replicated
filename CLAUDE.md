@@ -27,6 +27,16 @@ When you ask me to "create a release" or "make a release", I should:
 
 **Note**: Production credentials are already default in your shell (set in .zshrc), no environment switching needed.
 
+## Harbor Chart Version Management
+
+**CRITICAL**: We use the upstream Harbor registry chart. The chart **version** field in `charts/harbor/Chart.yaml` should NEVER be changed manually by us.
+
+- Chart version updates come exclusively from the upstream Harbor project
+- Do NOT increment, modify, or set the `version` field in `charts/harbor/Chart.yaml`
+- Only update the Harbor chart version through the upstream update process (e.g., `./scripts/update-charts.sh`)
+- We can edit other parts of the chart (values, templates, etc.) as needed when integrating updates
+- Our release version numbers are separate from the Harbor chart version
+
 ## Replicated SDK Configuration
 
 **Important**: `global.replicated.*` values (like `global.replicated.customerEmail`) are automatically injected by KOTS at runtime. These values will NOT be present in the static values.yaml files but are available when the application is deployed through KOTS. Do not treat missing `global.replicated` values as configuration errors.
