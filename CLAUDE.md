@@ -5,11 +5,12 @@
 When you ask me to "create a release" or "make a release", I should:
 
 1. **Get current version and increment patch**
-   - Get current Unstable version: `replicated release ls --channel Unstable | head -5`
-   - Parse the version and increment patch (e.g., `1.18.0` → `1.18.1`)
+   - Get latest release: `replicated release ls | head -10`
+   - Find the most recent release with a semantic version (e.g., `1.18.5`)
+   - Auto-increment patch version (e.g., `1.18.5` → `1.18.6`)
 
 2. **Package Helm charts**
-   - Clean existing packages: `rm -f manifests/*.tgz`
+   - Clean existing packages: `rm -f manifests/*.tgz 2>/dev/null || true`
    - Update Harbor dependencies: `helm dependency update charts/harbor`
    - Package charts:
      - `helm package charts/harbor -d manifests -u`
@@ -17,13 +18,15 @@ When you ask me to "create a release" or "make a release", I should:
      - `helm package charts/cert-manager -d manifests -u`
 
 3. **Create and promote release**
-   - `replicated release create --yaml-dir ./manifests --promote Unstable --version [NEW_VERSION]`
+   - `replicated release create --yaml-dir ./manifests --promote Dev --version [NEW_VERSION]`
    - **Note**: Do not use `--lint` flag when using alpha/beta EC versions, as they won't be recognized by the linter and will cause "non-existent-ec-version" errors. Skip linting for alpha releases.
 
 4. **Cleanup**
    - `rm -f manifests/*.tgz`
    - `rm -rf charts/harbor/charts/`
    - Show result: `replicated release ls | head -5`
+
+**Channel**: All releases are promoted to the **Dev** channel by default.
 
 **Note**: Production credentials are already default in your shell (set in .zshrc), no environment switching needed.
 
