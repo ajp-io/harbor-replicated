@@ -11,6 +11,7 @@ spec:
   exclude: 'repl{{ ne Distribution "embedded-cluster" }}'
   helmUpgradeFlags:
     - --wait
+    - --wait-for-jobs
     - --timeout
     - 5m
   values:
