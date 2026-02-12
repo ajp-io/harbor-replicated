@@ -2,31 +2,21 @@
 
 ## Release Workflow
 
-When you ask me to "create a release" or "make a release", I should:
+When you ask me to "create a release" or "make a release", use the `harbor-release` function:
 
-1. **Get current version and increment patch**
-   - Get latest release: `replicated release ls | head -10`
-   - Find the most recent release with a semantic version (e.g., `1.18.5`)
-   - Auto-increment patch version (e.g., `1.18.5` → `1.18.6`)
+```bash
+harbor-release           # Creates release with linting (default)
+harbor-release --no-lint # Creates release without linting (for alpha/beta EC versions)
+```
 
-2. **Package Helm charts**
-   - Clean existing packages: `rm -f manifests/*.tgz 2>/dev/null || true`
-   - Update Harbor dependencies: `helm dependency update charts/harbor`
-   - Package charts:
-     - `helm package charts/harbor -d manifests -u`
-     - `helm package charts/ingress-nginx -d manifests -u`
-     - `helm package charts/cert-manager -d manifests -u`
+The `harbor-release` function is defined in `~/.zshrc` and automatically:
+- Gets the latest release version and increments the patch version
+- Cleans and packages all Helm charts (harbor, ingress-nginx, cert-manager)
+- Creates and promotes the release to the **Dev** channel
+- Cleans up temporary files
+- Shows the latest releases
 
-3. **Create and promote release**
-   - `replicated release create --yaml-dir ./manifests --promote Dev --version [NEW_VERSION]`
-   - **Note**: Do not use `--lint` flag when using alpha/beta EC versions, as they won't be recognized by the linter and will cause "non-existent-ec-version" errors. Skip linting for alpha releases.
-
-4. **Cleanup**
-   - `rm -f manifests/*.tgz`
-   - `rm -rf charts/harbor/charts/`
-   - Show result: `replicated release ls | head -5`
-
-**Channel**: All releases are promoted to the **Dev** channel by default.
+**Note**: Use `--no-lint` when the release includes alpha/beta Embedded Cluster versions, as they won't be recognized by the linter.
 
 **Note**: Production credentials are already default in your shell (set in .zshrc), no environment switching needed.
 
