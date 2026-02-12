@@ -10,6 +10,7 @@ spec:
   weight: 0
   helmUpgradeFlags:
     - --wait
+    - --wait-for-jobs
     - --timeout
     - 5m
   values:
